@@ -1,0 +1,17 @@
+sequenceDiagram
+  actor Member
+  participant Service as service:TaskService
+  participant Repo as repository:ITaskRepository
+  Member->>Service: loadBoard(boardId)
+  Service->>Repo: loadBoard(boardId)
+  Repo-->>Service: board
+  Service-->>Member: board shown
+  Member->>Service: updateTask(task, input)
+  Service->>Service: validate(input)
+  alt input is valid
+    Service->>Repo: saveTask(task)
+    Repo-->>Service: saved
+    Service-->>Member: taskResult (task updated)
+  else input is invalid
+    Service-->>Member: taskResult (validation errors)
+  end

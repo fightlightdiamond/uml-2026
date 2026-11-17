@@ -1,0 +1,77 @@
+classDiagram
+  direction LR
+  class Board {
+    <<data model>>
+    +id : BoardId
+    +name : String
+  }
+  class Column {
+    <<data model>>
+    +id : ColumnId
+    +name : String
+    +wipLimit : Integer [0..1]
+  }
+  class Task {
+    <<data model>>
+    +id : TaskId
+    +title : String
+    +priority : Priority
+    +dueDate : Date [0..1]
+  }
+  class Member {
+    <<data model>>
+    +id : MemberId
+    +displayName : String
+  }
+  class Priority {
+    <<enumeration>>
+    LOW
+    MEDIUM
+    HIGH
+  }
+  class TaskInput {
+    <<data model>>
+    +title : String
+    +priority : Priority
+    +dueDate : Date [0..1]
+  }
+  class ValidationResult {
+    <<data model>>
+    +isValid : Boolean
+    +errors : String [0..*]
+  }
+  class TaskResult {
+    <<data model>>
+    +task : Task [0..1]
+    +validation : ValidationResult
+  }
+  class MoveResult {
+    <<data model>>
+    +isMoved : Boolean
+    +reason : String [0..1]
+  }
+  class TaskService {
+    <<service>>
+    +loadBoard(id : BoardId) : Board
+    +createTask(column : Column, input : TaskInput) : TaskResult
+    +updateTask(task : Task, input : TaskInput) : TaskResult
+    +moveTask(task : Task, target : Column) : MoveResult
+    +assignTask(task : Task, assignee : Member, assigner : Member) : void
+    -validate(input : TaskInput) : ValidationResult
+  }
+  class ITaskRepository {
+    <<interface>>
+    +loadBoard(id : BoardId) : Board
+    +saveTask(task : Task) : void
+  }
+  class ApiTaskRepository
+  class NotificationService {
+    <<external>>
+    +notifyAssigned(taskId : TaskId, memberId : MemberId) : void
+  }
+  Board "1" *-- "1..*" Column : columns
+  Column "1" -- "0..*" Task : tasks
+  Task "0..*" --> "0..1" Member : assignee
+  ITaskRepository <|.. ApiTaskRepository
+  TaskService ..> ITaskRepository : «use»
+  TaskService ..> NotificationService : «use»
