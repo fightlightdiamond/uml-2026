@@ -1,7 +1,7 @@
 # English 12 Tenses — Visual Handbook
 
 > Learn the 12 English tenses as a **system**, not as 12 separate rules.
-> Version 1.3.2 — bug-fix release (no new content).
+> Version 1.3.5 — final content release (no new content). Next step: render-check all diagrams.
 >
 > Every tense = **TIME** (Past / Present / Future) × **ASPECT** (Simple / Continuous / Perfect / Perfect Continuous).
 
@@ -9,6 +9,9 @@
 
 | Version | Changes |
 |---|---|
+| 1.3.5 | Polish only: removed duplicated attributes from `Tense` in the class diagram (the associations already show them); clarified that "Future Simple" is a teaching label (Section 7). |
+| 1.3.4 | Fixes only: new Perfect definition also applied to the Decision Flow (Section 6), the Cheat Sheet (Section 15) and the Use Case diagram (Section 2); corrected the note on Present Perfect and time expressions (a *since* starting point is allowed). |
+| 1.3.3 | Fixes only: Perfect redefined as *looking back from a point* (done before it, or a state lasting up to it) in Sections 1, 3, 4 and 5; note that Present Perfect has no stated start time; exceptions flagged in 11.1; separate *-ed* spelling rules and *-z → -es*; Note width has no time meaning in conversation diagrams; Future Perfect Continuous negative example given a time point; Exercise B mapped to Section 11; parentheses removed from a class-diagram member. |
 | 1.3.2 | Fixes only: legend now explains overview vs detail diagrams and conversation diagrams; story diagram uses arrows only for speech; tense names no longer in capitals inside diagrams; scope note for the time-clause rule (12.3); instructions added to Exercises G and H; corrected position of *ever*; Past Simple with finished parts of *today / this week*; class diagram uses association instead of composition; spelling rule for *w / x / y*; corrected definition of the AAA/ABB/ABA/ABC labels. |
 | 1.3.1 | Fixes only: unified diagram legend (narrow vs wide Note) in Sections 4–5; story diagram uses an explicit time point instead of a self-arrow; resolved *look* contradiction in 11.1; removed *will* from `SimpleAspect`; story subject corrected; G4 accepts both answers; added /θ/ to *-ed* rule; added *-ee/-ye/-oe* spelling exception; removed `%` from a Mermaid diagram. |
 | 1.3 | Expanded Section 11 (stative verbs with two meanings, *always* + Continuous); added Section 12.4 (pronunciation of *-ed* and *-s/-es*); new Section 13 *Beyond the 12 Tenses* (*used to / would*, *be used to*, modal perfect); expanded Section 14 exercises (Parts C–I, including a timeline task); added a frequency column to the Cheat Sheet; new Appendix A (irregular verbs); sections renumbered. |
@@ -47,7 +50,7 @@
 |---|---|---|---|
 | **Simple** — the fact, as a whole | worked | work(s) | will work |
 | **Continuous** — in progress | was/were working | am/is/are working | will be working |
-| **Perfect** — completed *before* a point | had worked | have/has worked | will have worked |
+| **Perfect** — looking back from a point: done *before* it, or a state lasting *up to* it | had worked | have/has worked | will have worked |
 | **Perfect Continuous** — duration *up to* a point | had been working | have/has been working | will have been working |
 
 **Three building blocks you only need to learn once:**
@@ -55,7 +58,7 @@
 | Block | Form | Meaning it adds |
 |---|---|---|
 | Continuous | **be + V-ing** | "in progress" |
-| Perfect | **have + V3** | "before a reference point" |
+| Perfect | **have + V3** | "looking back from a reference point" — done before it, or a state lasting up to it |
 | Perfect Continuous | **have + been + V-ing** | "in progress *up to* a reference point" |
 
 Then you only change the **first auxiliary** by time:
@@ -86,7 +89,7 @@ flowchart LR
     subgraph PRESENT["Talk about NOW"]
         U5([State habits, facts, schedules]) --> T5[Present Simple]
         U6([Describe what is happening now]) --> T6[Present Continuous]
-        U7([Report experience or a result that matters now]) --> T7[Present Perfect]
+        U7([Report experience, a result that matters now, or a state lasting up to now]) --> T7[Present Perfect]
         U8([Explain how long something has been going on]) --> T8[Present Perfect Continuous]
     end
 
@@ -111,8 +114,6 @@ Think of a tense as an object that refers to one **Time** and one **Aspect**. Th
 ```mermaid
 classDiagram
     class Tense {
-        +Time time
-        +Aspect aspect
         +positive()
         +negative()
         +question()
@@ -143,14 +144,14 @@ classDiagram
     }
     class SimpleAspect {
         meaning: the fact as a whole
-        verbPattern: main verb only (V / V-s / V2)
+        verbPattern: main verb only - V, V-s or V2
     }
     class ContinuousAspect {
         meaning: in progress
         verbPattern: be + V-ing
     }
     class PerfectAspect {
-        meaning: completed before a point
+        meaning: looking back - done before a point, or a state up to it
         verbPattern: have + V3
     }
     class PerfectContinuousAspect {
@@ -169,7 +170,7 @@ classDiagram
     Aspect <|-- PerfectContinuousAspect
 ```
 
-**How to read it:** each `Tense` refers to exactly **one** `Time` and **one** `Aspect` (3 × 4 = 12 combinations). The arrows are associations, not ownership: the same `PastTime` is shared by all four past tenses. Example: `Present Perfect` = `PresentTime` (first auxiliary *have/has*) + `PerfectAspect` (*have + V3*) → **I have worked**.
+**How to read it:** each `Tense` refers to exactly **one** `Time` and **one** `Aspect` (3 × 4 = 12 combinations). The two arrows labelled `time` and `aspect` are associations, not ownership: the same `PastTime` is shared by all four past tenses. Example: `Present Perfect` = `PresentTime` (first auxiliary *have/has*) + `PerfectAspect` (*have + V3*) → **I have worked**.
 
 > Note: in Future Simple, *will* comes from `FutureTime`; `SimpleAspect` adds nothing, so the verb stays in the base form (*will work*).
 >
@@ -185,14 +186,14 @@ classDiagram
 |---|---|
 | **Narrow Note** (over one column) | action **at** one point |
 | **Wide Note** (spanning several columns) | action or state **in progress over a period**, or a group title in CAPITALS |
-| Solid arrow `->>` | completed **before** a point (result) |
+| Solid arrow `->>` | Perfect: looking back from a point — done **before** it (result), or a state lasting **up to** it |
 | Dashed arrow `-->>` | continuing **up to** a point (duration) |
 
 **Two kinds of timeline diagram:**
 - **Overview** (this section): each column is a reference point. Continuous tenses are drawn as a narrow Note **at** their reference point, because the overview only shows *which* point they belong to.
 - **Detail** (Section 5, Past Continuous): zooms in on one reference point, so a Continuous action appears as a wide Note covering the period around that point.
 
-**Conversation diagrams** (Sections 7 and 8) are different: there, an arrow is **someone speaking**, not a timeline symbol. Each of those sections says so at the top.
+**Conversation diagrams** (Sections 7 and 8) are different: there, an arrow is **someone speaking**, not a timeline symbol, and the width of a Note has no time meaning. Each of those sections says so at the top.
 
 ```mermaid
 sequenceDiagram
@@ -228,6 +229,8 @@ sequenceDiagram
 ```
 
 Note on 5: Present Simple is a wide Note because a habit or fact is true over a long period, not at one point.
+
+Note on 7–8: the starting point can be anywhere in the past. The *Past Point* column is only where the arrow is drawn. Present Perfect is never used with a **finished** past time expression that gives the time of the action (*yesterday, last week, in 2020*), but a starting point with **since** is fine: *I have worked here since 2021.*
 
 Note on 12: the activity may have started earlier, even in the past — *By December, I will have been working here for 5 years.*
 
@@ -334,7 +337,7 @@ sequenceDiagram
 | (Wh) | Wh- + had + S + V3? | Why **had** the build **failed**? |
 | (SA) | Yes, S had. / No, S hadn't. | Yes, it **had**. / No, it **hadn't**. |
 
-- **Use:** the **earlier** of two past events; "past of the past".
+- **Use:** the **earlier** of two past events; "past of the past"; a **state** lasting up to a past point (*By 2020, I **had known** him for 10 years.*).
 - **Signals:** before, after, by the time, already, when (+ Past Simple).
 
 #### 4. Past Perfect Continuous
@@ -385,7 +388,7 @@ sequenceDiagram
 | (Wh) | Wh- + have/has + S + V3? | How many bugs **have** you **fixed** so far? |
 | (SA) | Yes, S have/has. / No, S haven't/hasn't. | Yes, I **have**. / No, I **haven't**. |
 
-- **Use:** life experience; past action with a **result now**; unfinished time period (today, this week).
+- **Use:** life experience; past action with a **result now**; unfinished time period (today, this week); a **state** that started in the past and continues up to now, usually with *for / since* and stative verbs (*I **have known** him for years.* / *I **have worked** here since 2021.*).
 - **Signals:** already, yet, just, ever, never, so far, recently, since, for.
 
 **For vs Since**
@@ -463,14 +466,14 @@ sequenceDiagram
 | (Wh) | Wh- + will + S + have + V3? | How much **will** you **have finished** by Friday? |
 | (SA) | Yes, S will. / No, S won't. | Yes, I **will**. / No, I **won't**. |
 
-- **Use:** completed **before** a future point (deadline thinking).
+- **Use:** completed **before** a future point (deadline thinking); a **state** lasting up to a future point (*By December, I **will have known** him for 10 years.*).
 - **Signals:** by + time, by the time, before, by then.
 
 #### 12. Future Perfect Continuous
 | | Form | Example |
 |---|---|---|
 | (+) | S + will have been + V-ing | By December, I **will have been working** here for 5 years. |
-| (−) | S + will not have been + V-ing | I **won't have been working** here long. |
+| (−) | S + will not have been + V-ing | By December, I **won't have been working** here for long. |
 | (?) | Will + S + have been + V-ing? | **Will** you **have been working** here for 5 years by December? |
 | (Wh) | Wh- + will + S + have been + V-ing? | How long **will** you **have been working** here by December? |
 | (SA) | Yes, S will. / No, S won't. | Yes, I **will**. / No, I **won't**. |
@@ -490,7 +493,7 @@ flowchart TD
 
     P -->|Fact, finished| P1[Past Simple<br/>I worked]
     P -->|In progress at that moment| P2[Past Continuous<br/>I was working]
-    P -->|Done before that moment| P3[Past Perfect<br/>I had worked]
+    P -->|Done before that moment, or a state lasting up to it| P3[Past Perfect<br/>I had worked]
     P -->|Duration up to that moment| P4[Past Perfect Continuous<br/>I had been working]
 
     N -->|Habit, fact, schedule| N1[Present Simple<br/>I work]
@@ -500,7 +503,7 @@ flowchart TD
 
     F -->|Will happen| F1[Future Simple<br/>I will work]
     F -->|In progress at that moment| F2[Future Continuous<br/>I will be working]
-    F -->|Done before that moment| F3[Future Perfect<br/>I will have worked]
+    F -->|Done before that moment, or a state lasting up to it| F3[Future Perfect<br/>I will have worked]
     F -->|Duration up to that moment| F4[Future Perfect Continuous<br/>I will have been working]
 ```
 
@@ -508,13 +511,13 @@ flowchart TD
 
 **Two questions decide every tense:**
 1. **Where is my reference point?** (past moment / now / future moment)
-2. **What do I focus on?** (fact / in progress / completed before / duration up to)
+2. **What do I focus on?** (fact / in progress / completed before or state up to / duration up to)
 
 ---
 
 ## 7. Future Forms — will, be going to, Present Continuous, Present Simple
 
-English has no single "future tense". Choose the form by **how certain or how planned** the future action is.
+"Future Simple" (*will* + V) is a **teaching label**: English has no single future tense, and *will* is only one of several ways to talk about the future. Choose the form by **how certain or how planned** the future action is.
 
 | Form | Structure | Use | Example |
 |---|---|---|---|
@@ -525,7 +528,7 @@ English has no single "future tense". Choose the form by **how certain or how pl
 
 **From least to most fixed:** will (decided now) → be going to (decided earlier) → Present Continuous (arranged with others) → Present Simple (official schedule).
 
-> **Conversation diagram:** in this diagram an arrow means **someone speaking**. It does not follow the timeline legend in Section 4.
+> **Conversation diagram:** in this diagram an arrow means **someone speaking**, and the width of a Note has no time meaning. It does not follow the timeline legend in Section 4.
 
 ```mermaid
 sequenceDiagram
@@ -559,7 +562,7 @@ Note the last line: *before the freeze **starts*** uses Present Simple after *be
 
 A real workday told with **all 12 tenses**. The story is spoken at **about 10:00 a.m.** (= NOW). Events are in chronological order.
 
-> **Conversation diagram:** arrows are **lines of dialogue** between people. Events that are not speech (the queue, the crash, the alert) are shown as Notes, so no arrow here has the timeline meaning from Section 4.
+> **Conversation diagram:** arrows are **lines of dialogue** between people. Events that are not speech (the queue, the crash, the alert) are shown as Notes, so no arrow here has the timeline meaning from Section 4. The width of a Note has no time meaning either: a wide Note is only there to fit the text.
 
 ```mermaid
 sequenceDiagram
@@ -648,7 +651,7 @@ Stative verbs describe **states**, not actions, so they are usually **not** used
 
 ### 11.1 Verbs with two meanings
 
-Some verbs are stative in one meaning and dynamic (action) in another. Only the **action** meaning can take *-ing*.
+Some verbs are stative in one meaning and dynamic (action) in another. Normally only the **action** meaning can take *-ing* (exceptions: *feel* and *look* — see the note below the table).
 
 | Verb | State meaning → Simple | Action meaning → Continuous OK |
 |---|---|---|
@@ -680,7 +683,7 @@ Similar adverbs: *constantly, forever* (*She's constantly interrupting me*).
 
 | Form | Rule | Examples |
 |---|---|---|
-| **V-s / V-es** (he/she/it) | add **-es** after -s, -ss, -sh, -ch, -x, -o | fixes, watches, goes |
+| **V-s / V-es** (he/she/it) | add **-es** after -s, -ss, -sh, -ch, -x, -z, -o | fixes, watches, buzzes, goes |
 | | consonant + **y** → **-ies** | try → tries |
 | | vowel + y → just **-s** | play → plays |
 | | irregular | have → **has** |
@@ -689,8 +692,14 @@ Similar adverbs: *constantly, forever* (*She's constantly interrupting me*).
 | | **-ie** → **-ying** | lie → lying |
 | | double final consonant after a short stressed vowel (CVC) | run → running, stop → stopping |
 | | never double **w, x, y** | fix → fixing, play → playing, show → showing |
-| **V2 / V3** (regular) | add **-ed** (same spelling rules: tried, stopped, fixed) | work → worked → worked |
+| **V2 / V3** (regular) | add **-ed** | work → worked → worked |
+| | ends in **-e** → add only **-d** | like → liked, agree → agreed, die → died |
+| | consonant + **y** → **-ied** | try → tried |
+| | vowel + y → just **-ed** | play → played |
+| | double final consonant after a short stressed vowel (CVC); never double **w, x, y** | stop → stopped, fix → fixed, show → showed |
 | **V2 / V3** (irregular) | must be memorised — see Appendix A | go → went → gone; write → wrote → written |
+
+⚠️ The *-ie → -ying* rule is for V-ing only: *die → dying*, but *die → died*.
 
 ### 12.2 Contractions
 
@@ -798,7 +807,7 @@ flowchart LR
 | Part | Focus | Related section |
 |---|---|---|
 | A | Choose the correct tense | 5 |
-| B | Fix the mistake | 5, 12.3 |
+| B | Fix the mistake | 5, 11, 12.3 |
 | C | Wh-questions and short answers | 5 |
 | D | *for / since*, *been / gone*, adverb position | 5 (Present Perfect) |
 | E | Confused pairs and interruptions | 5 (Past Continuous), 9 |
@@ -992,15 +1001,15 @@ Dashed arrow = duration **up to** the past point (*had been waiting*); narrow No
 |---|---|---|---|---|---|---|
 | 1 | Past Simple | S + V2/ed | *When did you work?* | finished at past time | yesterday, ago, last | ⭐⭐⭐ |
 | 2 | Past Continuous | S + was/were + V-ing | *What were you doing?* | in progress at past moment | while, when, at 8 p.m. yesterday | ⭐⭐ |
-| 3 | Past Perfect | S + had + V3 | *Why had it failed?* | before another past event | before, after, by the time | ⭐⭐ |
+| 3 | Past Perfect | S + had + V3 | *Why had it failed?* | before another past event / state up to a past point | before, after, by the time | ⭐⭐ |
 | 4 | Past Perfect Continuous | S + had been + V-ing | *How long had you been waiting?* | duration up to past point | for, since, when | ⭐ |
 | 5 | Present Simple | S + V(s/es) | *When does she work?* | habit, fact, schedule | always, usually, every | ⭐⭐⭐ |
 | 6 | Present Continuous | S + am/is/are + V-ing | *What are you doing?* | happening now / arranged plan | now, at the moment | ⭐⭐⭐ |
-| 7 | Present Perfect | S + have/has + V3 | *How many bugs have you fixed?* | result / experience up to now | already, yet, ever, so far | ⭐⭐⭐ |
+| 7 | Present Perfect | S + have/has + V3 | *How many bugs have you fixed?* | result / experience / state up to now | already, yet, ever, so far | ⭐⭐⭐ |
 | 8 | Present Perfect Continuous | S + have/has been + V-ing | *How long have you been working?* | duration up to now | for, since, all day | ⭐⭐ |
 | 9 | Future Simple | S + will + V | *When will you send it?* | decision, prediction, promise | tomorrow, soon, probably | ⭐⭐⭐ |
 | 10 | Future Continuous | S + will be + V-ing | *What will you be doing?* | in progress at future moment | at this time tomorrow | ⭐ |
-| 11 | Future Perfect | S + will have + V3 | *What will you have finished by Friday?* | done before future point | by + time | ⭐ |
+| 11 | Future Perfect | S + will have + V3 | *What will you have finished by Friday?* | done before / state up to a future point | by + time | ⭐ |
 | 12 | Future Perfect Continuous | S + will have been + V-ing | *How long will you have been working?* | duration up to future point | by + time + for | ⭐ |
 
 Also ⭐⭐⭐: *be going to* (Section 7) and *used to* (Section 13).

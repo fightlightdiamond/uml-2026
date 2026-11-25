@@ -45,19 +45,21 @@ flowchart LR
     Ordering["Ordering<br/>(Core)"]
     Inventory["Inventory<br/>(Upstream Supplier)"]
     Notify["Notification<br/>(Downstream)"]
-    Ledger["Legacy Ledger<br/>(Big Ball of Mud)"]
+    ACL["Accounting ACL<br/>(Cho's Boundary Translator)"]
+    Ledger["Legacy Ledger<br/>(Fixed Legacy Format /<br/>Big Ball of Mud)"]
 
     Catalog -->|"Published Language<br/>(Price Snapshot)"| Ordering
     Inventory -->|"Customer-Supplier"| Ordering
     Ordering -->|"Conformist"| Notify
-    Ordering -->|"Anti-Corruption Layer (ACL)"| Ledger
+    Ordering -->|"OHS / Published Language"| ACL
+    ACL -->|"Translates to Legacy Schema"| Ledger
 ```
 
 | Pattern | Meaning | SA Rule of Thumb |
 | --- | --- | --- |
 | **Customer-Supplier** | Upstream plans around downstream's needs | Use between closely collaborating internal contexts (`Inventory` → `Ordering`) |
 | **Conformist** | Downstream adopts upstream's model verbatim | Acceptable for low-priority downstream consumers (`Notification`) |
-| **Anti-Corruption Layer (ACL)** | Downstream translates upstream's ugly/foreign model | Mandatory at boundaries with legacy systems (`Legacy Ledger`) or 3rd-party gateways |
+| **Anti-Corruption Layer (ACL)** | Translator on your side isolating a foreign/legacy model | Mandatory at boundaries with legacy systems (`Legacy Ledger`) or 3rd-party gateways |
 | **Open Host Service (OHS) + Published Language** | Stable, versioned public contract (API / Event schema) | Standard way to expose a Core Context to multiple consumers |
 | **Shared Kernel** | Two contexts co-edit a shared code/data module | **Avoid by default** — creates tight release coupling |
 | **Separate Ways** | Intentionally do not integrate | Prefer when integration cost exceeds duplication cost |
@@ -97,7 +99,7 @@ Lumping everything under a generic "Service executes business processes" leads s
 
 | Component | Layer | What Belongs Here | What Is Forbidden Here |
 | --- | --- | --- | --- |
-| **Entity / Aggregate Root** | Domain | Core business rules, state transitions, and invariants (`order.cancel(reason)`) | Direct DB queries, HTTP calls, transaction management |
+| **Entity / Aggregate Root** | Domain | Core business rules, state transitions, invariants, and domain-level Authz (`order.cancel(actor, reason)`) | Direct DB queries, HTTP calls, transaction management |
 | **Domain Service** | Domain | Stateless domain logic spanning multiple domain objects that does not naturally belong to one Entity (e.g., `PricingCalculator`) | Persistence calls, sending emails, HTTP serialization |
 | **Application Service** | Application | Use-case orchestration: start transaction → load Aggregate via Repository → call domain method → save → publish event | Core business rules (`if order.status == 2 && ...`) |
 
@@ -114,9 +116,10 @@ class OrderService {
   }
 }
 
-// RIGHT — Rich Domain Model + Thin Application Service
-class Order { // Aggregate Root owns the invariant
-  cancel(reason) {
+// RIGHT — Rich Domain Model (Invariants + Domain Authz) + Thin Application Service
+class Order { // Aggregate Root owns state invariants & resource ownership rules
+  cancel(actor, reason) {
+    if (actor.id != this.buyerId && !actor.isOps()) throw ForbiddenError("Not allowed")
     if (this.status != PENDING_PAYMENT) throw DomainError("Invalid transition")
     this.status = CANCELLED
     this.recordEvent(new OrderCancelled(this.id, reason))
@@ -124,10 +127,10 @@ class Order { // Aggregate Root owns the invariant
 }
 
 class CancelOrderUseCase { // Application Service only orchestrates
-  execute(orderId, reason) {
+  execute(actor, orderId, reason) {
     tx.run(() => {
       order = orderRepo.findById(orderId)
-      order.cancel(reason)
+      order.cancel(actor, reason)
       orderRepo.save(order) // also writes outbox row atomically
     })
   }
@@ -150,7 +153,7 @@ flowchart TB
     API["Driving Adapters<br/>(REST API, Webhooks, CLI)"]
     APP["Application Layer<br/>(Use Cases / App Services)"]
     DOM["Domain Core<br/>(Aggregates, Entities, Value Objects,<br/>Domain Services, Domain Events)"]
-    PORTS["Ports (Interfaces defined by Domain/App)<br/>OrderRepository | PaymentGatewayPort | EventPublisher"]
+    PORTS["Outbound Ports (Interfaces owned by Domain/App)<br/>OrderRepository | PaymentGatewayPort | EventPublisher"]
     INFRA["Driven Adapters (Infrastructure)<br/>PostgresOrderRepo | StripeAdapter | KafkaPublisher"]
 
     API --> APP

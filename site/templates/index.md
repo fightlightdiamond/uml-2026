@@ -3,39 +3,33 @@ layout: home
 
 hero:
   name: 2026 Learning Hub
-  text: Architecture · Systems · SQL · UML · English
-  tagline: Personal knowledge base — Markdown in the repo, readable anywhere via VitePress.
+  text: One curriculum, clear order
+  tagline: Foundations → Modeling → Data → Systems → Architecture. Read in sequence; practice after each track.
   actions:
     - theme: brand
-      text: Solution Architecture
-      link: /sa/core-knowledge-base
+      text: Start the path
+      link: /path
     - theme: alt
-      text: Distributed Systems
-      link: /distributed-systems/handbook
+      text: Jump to Architecture
+      link: /architecture/
 
 features:
-  - title: Solution Architecture
-    details: 8-pillar core knowledge base, 10-step template, and DDD supplement.
-    link: /sa/core-knowledge-base
-  - title: Distributed Systems
-    details: Handbook and workbooks v4.13 — delivery, Outbox, Saga, CAP/PACELC, and lab runtime.
-    link: /distributed-systems/handbook
-  - title: SQL Server
-    details: Full learner handbook and companion workbook.
-    link: /sql/handbook
-  - title: UML Modeling
-    details: Handbook, workbook, and trainer answer guide for Use Case / Class / Sequence.
-    link: /uml/handbook
-  - title: Technical English
-    details: Learning process and 12 tenses handbook for engineering reading and writing.
-    link: /english/learning-process
-  - title: Lab & Exercises
-    details: Compose lab runtime notes plus exercise design change logs.
-    link: /lab/readme
-  - title: SRO Notes
-    details: AFK damage model and diagrams.
-    link: /sro/afk-damage
+  - title: "1 · Foundations"
+    details: Technical English — how to read and write engineering docs before deeper material.
+    link: /foundations/
+  - title: "2 · Modeling"
+    details: UML handbook, workbook, and answer guide (Use Case / Class / Sequence).
+    link: /modeling/
+  - title: "3 · Data"
+    details: SQL Server handbook + workbook — storage, concurrency, and evidence.
+    link: /data/
+  - title: "4 · Systems"
+    details: Distributed systems handbook → workbook → lab runtime.
+    link: /systems/
+  - title: "5 · Architecture"
+    details: SA 8 pillars → DDD → 10-step specification template.
+    link: /architecture/
+  - title: Practice & Notes
+    details: UML exercises for modeling; SRO notes kept off the main path.
+    link: /practice/
 ---
-
-
-> Content is **synced** from the repository on every `npm run dev` / `build`. Edit the original `.md` files outside `site/content/` — do not treat synced copies as source of truth.

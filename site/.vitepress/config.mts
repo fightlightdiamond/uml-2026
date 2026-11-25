@@ -6,7 +6,7 @@ const base = process.env.VITEPRESS_BASE || '/'
 export default withMermaid(
   defineConfig({
     title: '2026 Learning Hub',
-    description: 'Solution Architecture, Distributed Systems, SQL, UML, and English — personal knowledge base',
+    description: 'Ordered curriculum: Foundations → Modeling → Data → Systems → Architecture',
     lang: 'en-US',
     base,
     srcDir: 'content',
@@ -19,88 +19,114 @@ export default withMermaid(
     ],
 
     themeConfig: {
-      logo: undefined,
       nav: [
-        { text: 'Home', link: '/' },
-        { text: 'Solution Architecture', link: '/sa/core-knowledge-base' },
-        { text: 'Distributed Systems', link: '/distributed-systems/handbook' },
-        { text: 'SQL', link: '/sql/handbook' },
-        { text: 'UML', link: '/uml/handbook' },
-        { text: 'English', link: '/english/learning-process' },
+        { text: 'Path', link: '/path' },
+        {
+          text: 'Curriculum',
+          items: [
+            { text: '1 · Foundations', link: '/foundations/' },
+            { text: '2 · Modeling', link: '/modeling/' },
+            { text: '3 · Data', link: '/data/' },
+            { text: '4 · Systems', link: '/systems/' },
+            { text: '5 · Architecture', link: '/architecture/' },
+          ],
+        },
+        {
+          text: 'More',
+          items: [
+            { text: 'Practice', link: '/practice/' },
+            { text: 'Notes', link: '/notes/' },
+          ],
+        },
       ],
 
       sidebar: {
-        '/sa/': [
+        '/foundations/': [
           {
-            text: 'Solution Architecture',
+            text: '1 · Foundations',
             items: [
-              { text: 'Core Knowledge Base', link: '/sa/core-knowledge-base' },
-              { text: '10-Step Architecture Template', link: '/sa/10-step-architecture-template' },
-              { text: 'DDD Deep Dive', link: '/sa/ddd-deep-dive' },
+              { text: 'Overview', link: '/foundations/' },
+              { text: 'English · Learning process', link: '/foundations/english/learning-process' },
+              { text: 'English · 12 tenses', link: '/foundations/english/12-tenses-handbook' },
             ],
           },
         ],
-        '/distributed-systems/': [
+        '/modeling/': [
           {
-            text: 'Distributed Systems',
+            text: '2 · Modeling',
             items: [
-              { text: 'Handbook v4.13', link: '/distributed-systems/handbook' },
-              { text: 'Workbook v4.13', link: '/distributed-systems/workbook' },
-              { text: 'Handbook Workbook v4.13', link: '/distributed-systems/handbook-workbook' },
+              { text: 'Overview', link: '/modeling/' },
+              { text: 'UML · Handbook', link: '/modeling/uml/handbook' },
+              { text: 'UML · Workbook', link: '/modeling/uml/workbook' },
+              { text: 'UML · Answer guide', link: '/modeling/uml/answer-guide' },
             ],
           },
         ],
-        '/sql/': [
+        '/data/': [
           {
-            text: 'SQL Server',
+            text: '3 · Data',
             items: [
-              { text: 'Handbook', link: '/sql/handbook' },
-              { text: 'Workbook', link: '/sql/workbook' },
+              { text: 'Overview', link: '/data/' },
+              { text: 'SQL · Handbook', link: '/data/sql/handbook' },
+              { text: 'SQL · Workbook', link: '/data/sql/workbook' },
             ],
           },
         ],
-        '/uml/': [
+        '/systems/': [
           {
-            text: 'UML Modeling',
+            text: '4 · Systems',
             items: [
-              { text: 'Handbook', link: '/uml/handbook' },
-              { text: 'Workbook', link: '/uml/workbook' },
-              { text: 'Answer Guide', link: '/uml/answer-guide' },
+              { text: 'Overview', link: '/systems/' },
+              { text: 'Handbook v4.13', link: '/systems/handbook' },
+              { text: 'Workbook v4.13', link: '/systems/workbook' },
+              { text: 'Lab runtime', link: '/systems/lab' },
+              { text: 'Full edition (optional)', link: '/systems/full-edition' },
             ],
           },
         ],
-        '/english/': [
+        '/architecture/': [
           {
-            text: 'Technical English',
+            text: '5 · Architecture',
             items: [
-              { text: 'Learning Process', link: '/english/learning-process' },
-              { text: '12 Tenses Handbook', link: '/english/12-tenses-handbook' },
+              { text: 'Overview', link: '/architecture/' },
+              { text: 'Core knowledge base', link: '/architecture/core-knowledge-base' },
+              { text: 'DDD deep dive', link: '/architecture/ddd-deep-dive' },
+              { text: '10-step template', link: '/architecture/10-step-template' },
             ],
           },
         ],
-        '/sro/': [
+        '/practice/': [
           {
-            text: 'SRO',
+            text: 'Practice',
             items: [
-              { text: 'AFK Damage', link: '/sro/afk-damage' },
-              { text: 'AFK Damage Diagrams', link: '/sro/afk-damage-diagrams' },
+              { text: 'Overview', link: '/practice/' },
+              { text: 'UML 05 — Design notes', link: '/practice/uml-05-design-notes' },
+              { text: 'UML 06 — Change log', link: '/practice/uml-06-change-log' },
             ],
           },
         ],
-        '/exercises/': [
+        '/notes/': [
           {
-            text: 'Exercises',
+            text: 'Notes',
             items: [
-              { text: '05 — Design Notes', link: '/exercises/05-design-notes' },
-              { text: '06 — Change Log', link: '/exercises/06-change-log' },
+              { text: 'Overview', link: '/notes/' },
+              { text: 'SRO · AFK damage', link: '/notes/sro/afk-damage' },
+              { text: 'SRO · Diagrams', link: '/notes/sro/afk-damage-diagrams' },
             ],
           },
         ],
-        '/lab/': [
+        '/path': [
           {
-            text: 'Lab',
+            text: 'Curriculum',
             items: [
-              { text: 'Runtime README', link: '/lab/readme' },
+              { text: 'Learning path', link: '/path' },
+              { text: '1 · Foundations', link: '/foundations/' },
+              { text: '2 · Modeling', link: '/modeling/' },
+              { text: '3 · Data', link: '/data/' },
+              { text: '4 · Systems', link: '/systems/' },
+              { text: '5 · Architecture', link: '/architecture/' },
+              { text: 'Practice', link: '/practice/' },
+              { text: 'Notes', link: '/notes/' },
             ],
           },
         ],
@@ -110,15 +136,13 @@ export default withMermaid(
         provider: 'local',
       },
 
-      socialLinks: [],
-
       outline: {
         level: [2, 3],
       },
 
       footer: {
-        message: 'Personal learning hub — synced from repo markdown',
-        copyright: 'Source of truth remains the .md files in the repository',
+        message: 'Ordered curriculum — sync from repo markdown on each build',
+        copyright: 'Edit source files in sa/, sql/, docs/, … — not site/content/',
       },
     },
 
