@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Silkroad Online damage — SR_GameServer pipeline</title>
+  <meta name="description" content="Silkroad Online damage formula and hit order on SR_GameServer: dual-stream, balance after armor, jewelry absorption, and the damage floor.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Literata:ital,opsz,wght@0,7..72,460;0,7..72,650;1,7..72,460&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Source Sans 3"', 'ui-sans-serif', 'system-ui'],
+            serif: ['Literata', 'Iowan Old Style', 'Palatino', 'Georgia', 'serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          },
+          colors: { accent: '#c2410c' },
+        },
+      },
+    }
+  </script>
+  <style>
+    html { -webkit-text-size-adjust: 100%; }
+    body { overflow-x: clip; }
+    article { overflow-wrap: break-word; }
+    article a, article code { overflow-wrap: anywhere; }
+    .math { overflow-x: auto; margin: 1.15rem 0; padding: 0.85rem 1rem; background: #fff; border: 1px solid #e7e5e4; border-radius: 0.85rem; }
+    .math .katex-display { margin: 0; }
+    .field { margin-top: 0.3rem; width: 100%; border-radius: 0.55rem; border: 1px solid #d6d3d1; background: #fff; padding: 0.5rem 0.7rem; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 1rem; line-height: 1.4; color: #1c1917; }
+    .field:focus { outline: 2px solid #c2410c; outline-offset: 1px; border-color: #c2410c; }
+    .lbl { display: block; font-family: "Source Sans 3", ui-sans-serif; font-size: 0.75rem; font-weight: 600; color: #57534e; }
+    .btn { display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid #d6d3d1; background: #fff; padding: 0.4rem 0.85rem; font-family: "Source Sans 3", sans-serif; font-size: 0.875rem; font-weight: 600; color: #1c1917; }
+    .btn:hover { border-color: #c2410c; color: #c2410c; }
+    .btn-solid { background: #1c1917; color: #fff; border-color: #1c1917; }
+    .btn-solid:hover { background: #c2410c; border-color: #c2410c; color: #fff; }
+    .row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.38rem 0; border-bottom: 1px solid #f5f5f4; font-family: "Source Sans 3", sans-serif; font-size: 0.95rem; }
+    .row b { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; text-align: right; }
+    #score { box-shadow: 0 10px 28px rgba(28, 25, 23, 0.08); }
+    @media (max-width: 639px) {
+      .table-scroll { overflow: visible; }
+      .table-scroll table, .table-scroll thead, .table-scroll tbody, .table-scroll tr, .table-scroll th, .table-scroll td { display: block; width: 100%; min-width: 0; }
+      .table-scroll thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+      .table-scroll tr { margin-bottom: 0.75rem; border: 1px solid #d6d3d1; background: #fff; }
+      .table-scroll td { display: grid; grid-template-columns: minmax(6.5rem, 42%) minmax(0, 1fr); gap: 0.35rem 0.75rem; border-width: 0 0 1px; }
+      .table-scroll tr td:last-child { border-bottom-width: 0; }
+      .table-scroll td::before { content: attr(data-label); font-family: "Source Sans 3", sans-serif; font-size: 0.75rem; font-weight: 600; color: #57534e; }
+    }
+  </style>
+</head>
+<body class="bg-[#faf7f2] font-sans text-stone-950 antialiased">
+  <a class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-white focus:px-3 focus:py-2" href="#top">Skip to content</a>
+  <input id="nav-open" type="checkbox" class="peer sr-only">
+  <div class="sticky top-0 z-30 flex items-center gap-3 border-b border-stone-300 bg-[#faf7f2]/95 px-3 py-2 backdrop-blur xl:hidden print:hidden" style="padding-top: max(0.5rem, env(safe-area-inset-top))">
+    <label for="nav-open" class="shrink-0 cursor-pointer rounded-full bg-stone-950 px-3 py-2 text-sm font-semibold text-white">Contents</label>
+    <span class="truncate text-sm font-semibold text-stone-800">SRO damage</span>
+  </div>
+  <label for="nav-open" class="fixed inset-0 z-40 hidden cursor-pointer bg-stone-950/50 peer-checked:block xl:hidden print:hidden"></label>
+  <aside class="fixed inset-y-0 left-0 z-50 w-[min(20rem,100%)] -translate-x-full overflow-y-auto overscroll-contain bg-stone-950 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] text-stone-200 transition peer-checked:translate-x-0 xl:w-80 xl:translate-x-0 print:hidden">
+    <div class="mb-4 flex items-center justify-between px-3 xl:hidden">
+      <span class="text-sm font-semibold text-white">Contents</span>
+      <label for="nav-open" class="cursor-pointer rounded-full border border-white/20 px-3 py-1 text-xs text-white">Close</label>
+    </div>
+    <p class="px-3 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-accent">SR_GameServer</p>
+    <a class="mt-2 block px-3 font-serif text-xl leading-tight text-white" href="#top">Silkroad Online damage</a>
+    <a class="mx-3 mt-4 inline-flex rounded-full border border-white/15 px-3 py-1 text-xs text-stone-300 hover:border-white/40 hover:text-white" href="#may-tinh">Open calculator</a>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#cong-thuc">Formula</a></div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#dinh-chinh">Corrections</a>
+      <div class="mt-2 space-y-0.5">
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#balance-rate">Balance Rate F</a>
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#hap-thu">Jewelry absorption D</a>
+      </div>
+    </div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#thu-tu">One hit, in order</a></div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#tang-1">Tier 1 — Stats</a>
+      <div class="mt-2 space-y-0.5">
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#str-int">STR and INT</a>
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#he-so-f">Balance factor</a>
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#cong-co-ban">Base attack</a>
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#thu-hap-thu">Defense and absorption</a>
+      </div>
+    </div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#tang-2">Tier 2 — Block and roll</a></div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#tang-3">Tier 3 — Pipeline</a>
+      <div class="mt-2 space-y-0.5">
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#bien">Variables</a>
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#ba-buoc">Three steps</a>
+      </div>
+    </div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#tang-4">Tier 4 — Crit and Berserk</a></div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#tang-5">Tier 5 — Checks</a>
+      <div class="mt-2 space-y-0.5">
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#test-1">Test 1 — PvP</a>
+        <a class="block rounded-md px-3 py-2 text-[0.9375rem] leading-6 text-stone-200 hover:bg-white/10 hover:text-white" href="#test-2">Test 2 — Damage floor</a>
+      </div>
+    </div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#may-tinh">Calculator</a></div>
+    <div class="mt-6"><a class="px-3 text-[0.8rem] font-semibold text-accent" href="#pham-vi">Scope</a></div>
+  </aside>
+
+  <main id="top" class="min-w-0 xl:pl-80 print:pl-0">
+    <header class="border-b border-stone-300 bg-[#faf7f2] px-4 py-8 sm:px-8 sm:py-12 xl:px-14 xl:py-16">
+      <p class="font-mono text-xs uppercase tracking-[0.18em] text-accent">Silkroad Online · PC · Joymax / vSRO</p>
+      <h1 class="mt-3 max-w-[64rem] font-serif text-[1.75rem] leading-tight text-stone-950 sm:text-4xl xl:text-5xl">How the engine resolves one hit</h1>
+      <p class="mt-4 max-w-[46rem] font-serif text-lg leading-8 text-stone-700">The five-tier pipeline of SR_GameServer. Every rate enters the formula as a decimal. Physical and magic streams run in parallel, armor is subtracted first, and balance is applied after that.</p>
+      <dl class="mt-6 grid max-w-[64rem] gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 xl:grid-cols-4">
+        <div><dt class="text-xs font-medium text-stone-500">Source</dt><dd class="mt-1 text-sm text-stone-900">Original SR_GameServer</dd></div>
+        <div><dt class="text-xs font-medium text-stone-500">Units</dt><dd class="mt-1 text-sm text-stone-900">99% is entered as 0.99</dd></div>
+        <div><dt class="text-xs font-medium text-stone-500">Balance cap</dt><dd class="mt-1 text-sm text-stone-900">F ≤ 1.20</dd></div>
+        <div><dt class="text-xs font-medium text-stone-500">Floor of an active stream</dt><dd class="mt-1 text-sm text-stone-900">1 point, never negative</dd></div>
+      </dl>
+    </header>
+
+    <article class="mx-auto w-full max-w-[64rem] px-4 py-8 font-serif text-base leading-7 text-stone-950 sm:px-6 sm:py-10 sm:text-[1.0625rem] sm:leading-8 xl:px-8 xl:py-14 xl:text-[1.125rem]">
+
+      <h2 id="cong-thuc" class="scroll-mt-24 font-serif text-xl leading-snug sm:text-[1.65rem] xl:scroll-mt-8">The working formula</h2>
+      <p class="mt-5 text-pretty">Each hit resolves two independent streams \(t \in \{\mathrm{phy}, \mathrm{mag}\}\). A successful block stops the hit and the total is 0. An inactive stream contributes 0. An active stream that fails to penetrate armor is forced to 1 before a critical is considered.</p>
+      <div class="math">\[
+        \mathrm{Raw}_{t}=\frac{(A_{t}+B_{t})\,(1+C_{t})}{1+D_{t}}-E_{t}
+      \]</div>
+      <div class="math">\[
+        \mathrm{Calc}_{t}=\mathrm{Raw}_{t}\times F_{t}\times(1+G_{t})\times H_{t}\times L
+      \]</div>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{DMG}_{t}&=0 && \text{off}\\
+          \mathrm{DMG}_{t}&=1 && \text{on, Raw}\le 0\\
+          \mathrm{DMG}_{t}&=\max\!\big(1,\lfloor\mathrm{Calc}_{t}\rfloor\big) && \text{on, Raw}>0
+        \end{aligned}
+      \]</div>
+      <div class="math">\[
+        S=(1+c)\,\mathrm{DMG}_{\mathrm{phy}}+\mathrm{DMG}_{\mathrm{mag}}
+      \]</div>
+      <div class="math">\[
+        \mathrm{Total}=
+        \begin{cases}
+          0 & \text{block}\\
+          S\cdot Z & \text{otherwise}
+        \end{cases}
+      \]</div>
+      <p class="mt-5 text-pretty">\(c = 1\) on a critical hit and \(c = 0\) on a normal hit. A critical turns \((1+c)\) into 2 on the physical stream only. \(Z\) is the Berserk factor on the output total: \(Z = 1\) with no Berserk, and original servers usually use \(Z = 2\). \(F\) here is already a decimal and already capped at 1.20.</p>
+
+      <h2 id="dinh-chinh" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Two places that are easy to get wrong</h2>
+      <p class="mt-5 text-pretty">The two rules below were checked against the SR_GameServer disassembly and against measurements taken in game. The rest of this page uses those rules.</p>
+
+      <h3 id="balance-rate" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Balance Rate comes after armor</h3>
+      <p class="mt-4 text-pretty">\(F_{\mathrm{phy}}\) and \(F_{\mathrm{mag}}\) are multiplied in the amplification step, after defense has been subtracted. The attack stat on the character sheet does not already include this factor. The value that enters the product is a decimal, capped at 1.20. A UI reading of 107.788% becomes \(F = 1.07788\). The STR and INT formulas in Tier 1 already return that capped decimal, so the result is not divided by 100 again.</p>
+      <p class="mt-4 text-pretty">A summary that spread online wrote \(F\) as a percent from 0 to 120, without dividing by 100 and without the 120% cap. On Test 1, multiplying by 107.788 instead of 1.07788 turns \(\mathrm{Calc}\) into 1,057,322.34, one hundred times the pipeline value of 10,573.22.</p>
+
+      <h3 id="hap-thu" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Absorption uses diminishing division</h3>
+      <p class="mt-4 text-pretty">\(D\) is the sum of same-element absorption on the four jewelry pieces, converted to a decimal. That sum routinely exceeds 100%. The Wizard set in Test 1 is \(23.5\% + 23.7\% + 30.5\% + 26.2\% = 103.9\%\), so \(D = 1.039\). The engine divides by \(1+D\). At \(D = 1.039\), the attack remaining before armor is \(1/2.039 \approx 49.04\%\).</p>
+      <p class="mt-4 text-pretty">The subtraction \((1-D)\) on that same set gives \(1 - 1.039 = -0.039\), which pulls the numerator 11,971.84 negative before the 1,380 armor is even subtracted. The correct pipeline still produces a positive Raw of 4,491.43.</p>
+
+      <div class="table-scroll mt-6 overflow-x-auto">
+        <table class="w-full border-collapse text-left font-sans text-sm leading-6">
+          <thead>
+            <tr class="border-b border-stone-300 text-xs uppercase tracking-wide text-stone-500">
+              <th class="py-2 pr-4 font-semibold">D</th>
+              <th class="py-2 pr-4 font-semibold">Engine keeps: 1/(1+D)</th>
+              <th class="py-2 font-semibold">Subtraction (1−D), unused</th>
+            </tr>
+          </thead>
+          <tbody class="font-mono text-[0.92rem]">
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="D">0</td><td class="py-2 pr-4" data-label="1/(1+D)">100%</td><td class="py-2" data-label="(1−D), unused">100%</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="D">0.50</td><td class="py-2 pr-4" data-label="1/(1+D)">66.67%</td><td class="py-2" data-label="(1−D), unused">50%</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="D">1.00</td><td class="py-2 pr-4" data-label="1/(1+D)">50%</td><td class="py-2" data-label="(1−D), unused">0%</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="D">1.039</td><td class="py-2 pr-4" data-label="1/(1+D)">49.04%</td><td class="py-2" data-label="(1−D), unused">−3.9%</td></tr>
+            <tr><td class="py-2 pr-4" data-label="D">2.00</td><td class="py-2 pr-4" data-label="1/(1+D)">33.33%</td><td class="py-2" data-label="(1−D), unused">−100%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="thu-tu" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">One hit, in order</h2>
+      <ol class="mt-6 space-y-4 font-sans text-[0.98rem] leading-7">
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">1</span><span class="mt-1 block font-serif text-lg text-stone-950">Build the stats as decimals</span>STR, INT, the milestone \(M\), \(F\) already capped at 1.20, the attack bounds, \(D\), and \(E\). Ignore Monster Defense in PvE sets \(E = 0\).</li>
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">2</span><span class="mt-1 block font-serif text-lg text-stone-950">Ask the shield</span>If the target holds a shield and Blocking Ratio succeeds, Total = 0 and the hit stops.</li>
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">3</span><span class="mt-1 block font-serif text-lg text-stone-950">Roll A and B</span>Draw a value in [Min, Max]. Attack Rating and Parry only pull the roll toward Max or Min. Silkroad has no dodge.</li>
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">4</span><span class="mt-1 block font-serif text-lg text-stone-950">Raw, per stream</span>\((A+B)(1+C)/(1+D) - E\). Physical and magic are computed separately.</li>
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">5</span><span class="mt-1 block font-serif text-lg text-stone-950">Multiply by F, G, H, L</span>\(F\) is a decimal, at most 1.20, and it stands after the armor subtraction.</li>
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">6</span><span class="mt-1 block font-serif text-lg text-stone-950">Apply the floor</span>Stream off → 0. Stream on and Raw ≤ 0 → 1. Stream on and Raw &gt; 0 → \(\max(1, \lfloor \mathrm{Calc}\rfloor)\).</li>
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">7</span><span class="mt-1 block font-serif text-lg text-stone-950">Add, then critical</span>A normal hit adds the two DMG values. A critical doubles the floored physical DMG, then adds magic DMG.</li>
+        <li class="rounded-xl border border-stone-300 bg-white px-4 py-3"><span class="font-mono text-xs text-accent">8</span><span class="mt-1 block font-serif text-lg text-stone-950">Berserk and multi-hit</span>Each hit runs again from the shield check through critical and produces its own \(S\). \(Z\) multiplies each \(S\), or multiplies the sum of the \(S\) values once: both give the same number because \(Z\) does not change per hit. A blocked hit stays 0.</li>
+      </ol>
+
+      <div class="mt-8 rounded-2xl border border-stone-300 bg-white p-4 sm:p-6">
+        <p class="font-mono text-xs uppercase tracking-[0.18em] text-accent">One hit after the roll</p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-xl border-2 border-accent/50 bg-[#fff7f2] p-4">
+            <p class="font-sans text-sm font-semibold">Physical stream</p>
+            <p class="mt-2 font-sans text-sm leading-6 text-stone-700">Raw from physical A, B, C, D, E. Multiply by \(F_{\mathrm{phy}}\), \(1+G\), \(H\), \(L\). An active stream has a minimum of 1, and only then does a critical double that integer.</p>
+          </div>
+          <div class="rounded-xl border border-stone-300 p-4">
+            <p class="font-sans text-sm font-semibold">Magic stream</p>
+            <p class="mt-2 font-sans text-sm leading-6 text-stone-700">The same steps, with the magic variables. The imbue portion uses that portion’s own coefficient; on a weapon hit, that portion usually sits on the magic stream. A critical does not multiply this stream.</p>
+          </div>
+        </div>
+        <p class="mt-4 text-center font-sans text-sm leading-6 text-stone-600">Add the two DMG values → a critical doubles only the physical cell → Berserk multiplies the total. A block never enters this diagram.</p>
+      </div>
+
+      <h2 id="tang-1" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Tier 1 — Base stats and the character sheet</h2>
+      <p class="mt-5 text-pretty">Every input is a decimal before it leaves this tier. For example, 99% is 0.99, 103.9% is 1.039, 208% is 2.08, and a balance of 107.788% is 1.07788.</p>
+
+      <h3 id="str-int" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">STR and INT</h3>
+      <p class="mt-4 text-pretty">Each level, the character gains 1 STR, 1 INT, and 3 points to allocate. The allocatable pool at the current level is \(3(\mathrm{Lv}-1)\).</p>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{STR}_{\mathrm{total}}&=\mathrm{BaseSTR}+(\mathrm{Lv}-1)\\
+          &\quad+\mathrm{AllocSTR}+\mathrm{GearBuffSTR}
+        \end{aligned}
+      \]</div>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{INT}_{\mathrm{total}}&=\mathrm{BaseINT}+(\mathrm{Lv}-1)\\
+          &\quad+\mathrm{AllocINT}+\mathrm{GearBuffINT}
+        \end{aligned}
+      \]</div>
+      <p class="mt-4 text-pretty">BaseSTR and BaseINT come from race and class on the character sheet. This page does not embed a base-stat table. The GearBuff field is STR or INT from gear and buffs, entered as one number.</p>
+
+      <h3 id="he-so-f" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Balance factor</h3>
+      <p class="mt-4 text-pretty">The level milestone:</p>
+      <div class="math">\[ M = 28 + 4 \times \mathrm{Lv} \]</div>
+      <p class="mt-4 text-pretty">Physical balance, capped at 1.20. The factor \(\tfrac{2}{3}\) makes STR = 0 return exactly \(\tfrac{1}{3}\). A real character always has BaseSTR and the STR granted by levels, so with no allocated STR, \(F_{\mathrm{phy}}\) still sits above 33.3%.</p>
+      <div class="math">\[
+        F_{\mathrm{phy}}=\min\!\left(1.20,\; 1-\frac{2}{3}\cdot\frac{M-\mathrm{STR}_{\mathrm{total}}}{M}\right)
+      \]</div>
+      <p class="mt-4 text-pretty">The same quantity, written as the ratio of STR to the milestone:</p>
+      <div class="math">\[
+        F_{\mathrm{phy}}=\min\!\left(1.20,\; \frac{1}{3}+\frac{2}{3}\cdot\frac{\mathrm{STR}_{\mathrm{total}}}{M}\right)
+      \]</div>
+      <p class="mt-4 text-pretty">The 1.20 cap is reached when \(\mathrm{STR}_{\mathrm{total}} \ge 1.3\,M\). From that point on, more STR does not raise \(F_{\mathrm{phy}}\).</p>
+      <p class="mt-4 text-pretty">Magic balance has no \(\tfrac{1}{3}\)-style floor. Full STR leaves INT low, so \(F_{\mathrm{mag}}\) is low with it. The cap is also 1.20, reached when \(\mathrm{INT}_{\mathrm{total}} \ge 1.2\,M\).</p>
+      <div class="math">\[
+        F_{\mathrm{mag}}=\min\!\left(1.20,\; \frac{\mathrm{INT}_{\mathrm{total}}}{M}\right)
+      \]</div>
+
+      <div class="table-scroll mt-6 overflow-x-auto">
+        <table class="w-full border-collapse text-left font-sans text-sm leading-6">
+          <thead>
+            <tr class="border-b border-stone-300 text-xs uppercase tracking-wide text-stone-500">
+              <th class="py-2 pr-4 font-semibold">STR / M</th>
+              <th class="py-2 pr-4 font-semibold">Physical F</th>
+              <th class="py-2 pr-4 font-semibold">INT / M</th>
+              <th class="py-2 font-semibold">Magic F</th>
+            </tr>
+          </thead>
+          <tbody class="font-mono text-[0.92rem]">
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="STR / M">0</td><td class="py-2 pr-4" data-label="Physical F">0.3333</td><td class="py-2 pr-4" data-label="INT / M">0</td><td class="py-2" data-label="Magic F">0</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="STR / M">0.50</td><td class="py-2 pr-4" data-label="Physical F">0.6667</td><td class="py-2 pr-4" data-label="INT / M">0.50</td><td class="py-2" data-label="Magic F">0.5000</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="STR / M">1.00</td><td class="py-2 pr-4" data-label="Physical F">1.0000</td><td class="py-2 pr-4" data-label="INT / M">1.00</td><td class="py-2" data-label="Magic F">1.0000</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-4" data-label="STR / M">1.30</td><td class="py-2 pr-4" data-label="Physical F">1.2000</td><td class="py-2 pr-4" data-label="INT / M">1.20</td><td class="py-2" data-label="Magic F">1.2000</td></tr>
+            <tr><td class="py-2 pr-4" data-label="STR / M">1.50</td><td class="py-2 pr-4" data-label="Physical F">1.2000</td><td class="py-2 pr-4" data-label="INT / M">1.50</td><td class="py-2" data-label="Magic F">1.2000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="cong-co-ban" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Base attack, before Mastery</h3>
+      <p class="mt-4 text-pretty">Each formula is run twice, once for Min and once for Max, because the reinforce percents on the two ends can differ. Reinforce is entered in percent points: an 80% line is divided by 100.</p>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{PhyAtk}&=\mathrm{WepPhy}+\mathrm{Flat}_{\mathrm{phy}}\\
+          &\quad+\mathrm{STR}_{\mathrm{total}}\times\frac{\mathrm{Reinforce}}{100}
+        \end{aligned}
+      \]</div>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{MagAtk}&=\mathrm{WepMag}+\mathrm{Flat}_{\mathrm{mag}}\\
+          &\quad+\mathrm{INT}_{\mathrm{total}}\times\frac{\mathrm{Reinforce}}{100}
+        \end{aligned}
+      \]</div>
+      <p class="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 font-sans text-[0.98rem] leading-7">Do not double-count Mastery. If \(A\) is weapon attack before Mastery, put Mastery in \(C\). If \(A\) is the character-sheet number that already includes Mastery, leave Mastery out of \(C\). One source goes into only one of the two places.</p>
+
+      <h3 id="thu-hap-thu" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Defense and absorption</h3>
+      <p class="mt-4 text-pretty">\(E_{\mathrm{phy}}\) and \(E_{\mathrm{mag}}\) are same-element defense after armor, armor reinforce by STR or INT, defense buffs, and defense debuffs such as Division or Weaken. Ignore Monster Defense works in PvE only: when that line is active, set \(E_{t} = 0\).</p>
+      <p class="mt-4 text-pretty">\(D_{\mathrm{phy}}\) and \(D_{\mathrm{mag}}\) are the summed same-element absorption percents of two rings, the earring, and the necklace, divided by 100. \(D\) is not capped at 1. Four pieces at 103.9% give \(D = 1.039\), and the pipeline denominator is \(1 + D = 2.039\).</p>
+
+      <h2 id="tang-2" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Tier 2 — Block and the Min–Max roll</h2>
+      <p class="mt-5 text-pretty">Silkroad Online has no dodge. Every hit passes two gates before it becomes damage.</p>
+      <p class="mt-4 text-pretty">Block gate: the target is holding a shield and the roll hits Blocking Ratio. That hit’s total damage is 0. Crit, Berserk, and both streams are not applied to a blocked hit. A multi-hit skill asks Block once per hit; a blocked hit is 0, and the other hits still run.</p>
+      <p class="mt-4 text-pretty">Roll gate: the server draws \(A_{t}\) and \(B_{t}\) inside \([\mathrm{Min}, \mathrm{Max}]\). The distribution is not uniform. SR_GameServer samples in several tiers: three samples take the min, combined with an extra random branch, then the distribution is shifted by the gap between the attacker’s Attack Rating and the target’s Parry Ratio.</p>
+      <ul class="mt-4 list-disc space-y-2 pl-6 font-sans text-[0.98rem] leading-7 marker:text-accent">
+        <li class="pl-1">The higher Attack Rating is above Parry Ratio, the closer the roll stays to Max.</li>
+        <li class="pl-1">The higher Parry Ratio is, the more the roll is pulled toward Min.</li>
+        <li class="pl-1">Electric Shock lowers Parry Ratio, so the target takes damage clustered near Max.</li>
+      </ul>
+      <p class="mt-4 text-pretty">Attack Rating and Parry Ratio belong to this gate. They choose where \(A\) and \(B\) sit inside the range. Tier 3 receives the two rolled numbers and does not multiply by an extra parry factor. The calculator at the bottom also takes \(A\) and \(B\) as already rolled. The spec fixes the direction of the distribution; this page does not reproduce the internal parameters of each random sample.</p>
+
+      <h2 id="tang-3" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Tier 3 — Two streams and the damage floor</h2>
+      <p class="mt-5 text-pretty">Every hit runs both streams. A stream that is not part of the hit — a plain swing with no imbue turns the magic stream off — contributes DMG = 0. That is different from a stream that is present but fails to penetrate armor. A present stream with Raw ≤ 0 still deals 1.</p>
+
+      <h3 id="bien" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Variables of one stream</h3>
+      <div class="table-scroll mt-4 overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse text-left font-sans text-sm leading-6">
+          <thead>
+            <tr class="border-b border-stone-300 text-xs uppercase tracking-wide text-stone-500">
+              <th class="py-2 pr-3 font-semibold">Variable</th>
+              <th class="py-2 pr-3 font-semibold">Meaning</th>
+              <th class="py-2 font-semibold">Form entered</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">A</td><td class="py-2 pr-3" data-label="Meaning">Basic attack already rolled in [Min, Max]</td><td class="py-2" data-label="Form">points</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">B</td><td class="py-2 pr-3" data-label="Meaning">Skill AP or the imbue portion, already rolled</td><td class="py-2" data-label="Form">points</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">C</td><td class="py-2 pr-3" data-label="Meaning">Sum of attack-power rates: weapon passive, Mastery if A does not already include it, Attack Power % buffs</td><td class="py-2" data-label="Form">0.99 for 99%</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">D</td><td class="py-2 pr-3" data-label="Meaning">Sum of same-element absorption on the four jewelry pieces</td><td class="py-2" data-label="Form">1.039 for 103.9%, and it may exceed 1</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">E</td><td class="py-2 pr-3" data-label="Meaning">Same-element defense, including buffs and debuffs</td><td class="py-2" data-label="Form">points; 0 when PvE ignore is on</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">F</td><td class="py-2 pr-3" data-label="Meaning">Balance of that element, multiplied after E is subtracted</td><td class="py-2" data-label="Form">decimal, cap 1.20</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">G</td><td class="py-2 pr-3" data-label="Meaning">Sum of general damage rates: a +5% line on gear or an avatar, Life Turnover +25%, damage scrolls</td><td class="py-2" data-label="Form">add them into one G, then use (1+G)</td></tr>
+            <tr class="border-b border-stone-200"><td class="py-2 pr-3 font-mono" data-label="Variable">H</td><td class="py-2 pr-3" data-label="Meaning">Skill coefficient of the portion being resolved</td><td class="py-2" data-label="Form">2.08 for 208%</td></tr>
+            <tr><td class="py-2 pr-3 font-mono" data-label="Variable">L</td><td class="py-2 pr-3" data-label="Meaning">Level gap, shared by both streams</td><td class="py-2" data-label="Form">cap 1.30</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-4 text-pretty">\(C\), \(D\), and \(G\) are each the sum of sources of the same kind. They are added first, then placed in one spot in the formula. Gear +5% and Life Turnover +25% become \(G = 0.30\), so the factor \((1+G) = 1.30\).</p>
+      <p class="mt-4 text-pretty">\(L\) rises by about 3% per level when the attacker is higher than the target, and stops at +30%, so \(L \le 1.30\). The approximation used for estimates is \(L = \min(1.30,\; 1 + 0.03 \times \max(0, \mathrm{Lv}_{\mathrm{atk}} - \mathrm{Lv}_{\mathrm{def}}))\). The spec describes the case where the attacker is higher. When the attacker is lower, this estimate keeps \(L = 1\); it does not add a level penalty.</p>
+      <p class="mt-4 text-pretty">A skill database can store two coefficients: the main damage coefficient and a secondary coefficient for the imbue portion. Flame Wave uses 2.50 on the main stream and 0.83 on the added imbue portion. Each portion receives its own coefficient. Turn Rising in Test 1 has one coefficient, 2.08, on the whole \((A+B)\), so a pipeline with one \(H\) per stream applies directly. When the two coefficients differ, \(H\) is no longer a common factor that can be pulled out together with \(E\). The calculator keeps one \(H\) per stream, which matches the written formula and Test 1.</p>
+
+      <h3 id="ba-buoc" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Three steps of each stream</h3>
+      <p class="mt-4 text-pretty">Step 1, pass through absorption, then subtract armor:</p>
+      <div class="math">\[
+        \mathrm{Raw}_{t}=\frac{(A_{t}+B_{t})\times(1+C_{t})}{1+D_{t}}-E_{t}
+      \]</div>
+      <p class="mt-4 text-pretty">Step 2, amplify. \(F_{t}\) is the decimal already capped at 1.20. The STR/INT formulas in Tier 1 return that number directly, so it is not divided by 100 again. Divide by 100 only when the number in hand is a UI percent.</p>
+      <div class="math">\[
+        \mathrm{Calc}_{t}=\mathrm{Raw}_{t}\times F_{t}\times(1+G_{t})\times H_{t}\times L
+      \]</div>
+      <p class="mt-4 text-pretty">Step 3, apply the floor. This is the step that shortened formulas online drop, and those formulas then produce a negative. Raw ≤ 0 means the amount left after absorption does not exceed \(E_{t}\); the later factors must not turn a negative into damage. An active stream receives 1. An inactive stream receives 0, so a plain swing does not gain an extra point of magic.</p>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{DMG}_{t}&=0 && \text{off}\\
+          \mathrm{DMG}_{t}&=1 && \mathrm{Raw}\le 0\\
+          \mathrm{DMG}_{t}&=\max\!\big(1,\lfloor\mathrm{Calc}_{t}\rfloor\big) && \mathrm{Raw}>0
+        \end{aligned}
+      \]</div>
+      <p class="mt-4 text-pretty">With \(F\), \((1+G)\), \(H\), and \(L\) positive, the Raw ≤ 0 branch and the \(\max(1,\lfloor\mathrm{Calc}\rfloor)\) branch agree. The floor of 1 also catches hits whose Raw is positive but whose small \(H\) drops Calc below 1.</p>
+
+      <h2 id="tang-4" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Tier 4 — Critical, multi-hit, Berserk</h2>
+      <p class="mt-5 text-pretty">A normal hit, once each stream is an integer:</p>
+      <div class="math">\[ \mathrm{Total}=\mathrm{DMG}_{\mathrm{phy}}+\mathrm{DMG}_{\mathrm{mag}} \]</div>
+      <p class="mt-4 text-pretty">A critical doubles exactly the floored physical DMG. The magic stream stays as it is:</p>
+      <div class="math">\[ \mathrm{Total}_{\mathrm{crit}}=(2 \times \mathrm{DMG}_{\mathrm{phy}})+\mathrm{DMG}_{\mathrm{mag}} \]</div>
+      <p class="mt-4 text-pretty">A full-STR build keeps nearly all of its damage on the physical stream, so one critical lands near 200% of the normal hit. A full-INT build that is imbuing or nuking keeps most of its damage on the magic stream; the critical only lifts the physical part, and the increase in the total usually falls around 30%–50%, depending on the split between the two streams.</p>
+      <p class="mt-4 text-pretty">Multi-hit skills: each hit has its own \(H_{\mathrm{hit}}\) and runs Tier 2 through Tier 4 again. Three hits at 80% are three calculations with \(H = 0.80\), each with its own Block roll and its own Crit roll. Skill damage is the sum of the per-hit totals.</p>
+      <p class="mt-4 text-pretty">Berserk multiplies the output total of the hit. Original servers usually use \(\times 2\). Because \(Z\) is constant across hits, multiplying each hit and then adding equals adding the hits and then multiplying. A blocked hit is still 0 after Berserk.</p>
+
+      <h2 id="tang-5" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Tier 5 — Two boundary tests</h2>
+
+      <h3 id="test-1" class="mt-8 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Test 1 — Warrior hits Wizard, same level, near Max</h3>
+      <p class="mt-4 text-pretty">Same-level PvP, \(L = 1\). Turn Rising is 208%, so \(H = 2.08\). The two-handed sword passive is +99%, so \(C = 0.99\). The Wizard’s four jewelry pieces sum to \(D = 1.039\). Measured balance is \(F = 1.07788\), already a decimal. Gear +5% damage gives \(G = 0.05\). The magic stream of this hit is not in the recorded case.</p>
+      <dl class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">A</dt><dd class="font-mono text-lg">4,538</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">B</dt><dd class="font-mono text-lg">1,478</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">C</dt><dd class="font-mono text-lg">0.99</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">D</dt><dd class="font-mono text-lg">1.039</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">E</dt><dd class="font-mono text-lg">1,380</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">F</dt><dd class="font-mono text-lg">1.07788</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">G</dt><dd class="font-mono text-lg">0.05</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">H</dt><dd class="font-mono text-lg">2.08</dd></div>
+        <div class="rounded-lg border border-stone-300 bg-white px-3 py-2"><dt class="font-mono text-xs text-stone-500">L</dt><dd class="font-mono text-lg">1</dd></div>
+      </dl>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{Raw}_{\mathrm{phy}}
+          &=\frac{(4538+1478)\times 1.99}{2.039}-1380\\
+          &=\frac{11971.84}{2.039}-1380\\
+          &=4491.42717\ldots
+        \end{aligned}
+      \]</div>
+      <div class="math">\[
+        \begin{aligned}
+          \mathrm{Calc}_{\mathrm{phy}}
+          &=4491.42717\ldots\\
+          &\quad\times 1.07788\times 1.05\times 2.08\\
+          &=10573.22343\ldots
+        \end{aligned}
+      \]</div>
+      <p class="mt-4 text-pretty">\(\mathrm{DMG}_{\mathrm{phy}} = \lfloor 10573.22343 \rfloor = 10573\). The magic stream is off, so it is 0. The pipeline total is 10,573. The number that popped on the game UI was 10,576. The 3-point gap is recorded as integer rounding at display time. Turning critical on for the same hit makes the pipeline return \(2 \times 10573 = 21146\). This measurement does not include a separate critical UI number.</p>
+      <p class="mt-4"><button type="button" class="btn btn-solid" id="jump-test1">Run Test 1 in the calculator</button></p>
+
+      <h3 id="test-2" class="mt-10 scroll-mt-24 font-serif text-lg font-semibold sm:text-xl xl:scroll-mt-8">Test 2 — Level 1 hits level 100</h3>
+      <p class="mt-4 text-pretty">A normal hit, \(A_{\mathrm{phy}} = 20\), \(B = 0\), \(C = 0\), \(F_{\mathrm{phy}} = 0.95\). The target has \(D_{\mathrm{phy}} = 1.00\) and \(E_{\mathrm{phy}} = 3000\). With no imbue, the magic stream is off.</p>
+      <div class="math">\[
+        \mathrm{Raw}_{\mathrm{phy}}=\frac{20 \times 1}{1+1.00}-3000=10-3000=-2990
+      \]</div>
+      <p class="mt-4 text-pretty">Raw is negative and the physical stream is on, so physical DMG = 1. Magic DMG = 0. Total = 1.</p>
+      <p class="mt-4 text-pretty">Add a level-1 imbue whose magic Raw also fails to beat armor, and the magic stream turns on and is forced to 1 as well. Total = 1 + 1 = 2. The spec for this case settles the floor branch; it does not list each magic variable. The calculator uses a boundary stand-in only so that magic Raw ≤ 0.</p>
+      <p class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="btn" id="jump-test2">Run the plain hit</button>
+        <button type="button" class="btn" id="jump-test2b">Run the boundary imbue</button>
+      </p>
+
+      <h2 id="may-tinh" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Calculator on the same pipeline</h2>
+      <p class="mt-5 text-pretty">Rate fields take decimals. Turn on “this is a percent” when pasting a number from the UI: \(F\) is divided by 100 and then capped at 1.20; \(D\) is only divided by 100 and is not capped at 1. \(A\) and \(B\) are already-rolled values.</p>
+      <noscript><p class="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 font-sans text-sm">The calculator needs JavaScript. The formulas and the two tests above can still be read.</p></noscript>
+
+      <div id="calc-root">
+      <div class="mt-5 flex flex-wrap gap-2 print:hidden">
+        <button type="button" class="btn btn-solid" data-preset="test1">Test 1</button>
+        <button type="button" class="btn" data-preset="test1crit">Test 1 + critical</button>
+        <button type="button" class="btn" data-preset="test2">Test 2 plain</button>
+        <button type="button" class="btn" data-preset="test2b">Test 2 + boundary imbue</button>
+        <button type="button" class="btn" data-preset="blank">Clear the hit</button>
+      </div>
+
+      <div id="score" class="sticky top-[calc(3.25rem+env(safe-area-inset-top))] z-20 mt-4 rounded-2xl border border-stone-300 bg-[#fffdf8] px-4 py-3 xl:hidden">
+        <p class="font-mono text-[0.68rem] uppercase tracking-[0.16em] text-accent">Total of this hit</p>
+        <p id="score-value" class="mt-1 font-serif text-4xl leading-none text-stone-950">—</p>
+        <p id="score-note" class="mt-2 font-sans text-sm leading-6 text-stone-600">Using the numbers already on the form.</p>
+      </div>
+
+      <div class="mt-6 grid gap-6 xl:grid-cols-2 xl:items-start">
+        <div class="space-y-6">
+          <section class="rounded-2xl border border-stone-300 bg-white p-4 sm:p-5" aria-labelledby="calc-f">
+            <h3 id="calc-f" class="font-serif text-xl">Balance from STR and INT</h3>
+            <p class="mt-2 font-sans text-sm leading-6 text-stone-600">The sample below is only for trying the formula. It is not the Test 1 build. Test 1 uses the measured \(F = 1.07788\).</p>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <label class="lbl col-span-2 max-w-[12rem]">Level<input class="field" id="lv" type="number" step="1" value="90"></label>
+              <label class="lbl">Base STR<input class="field" id="base-str" type="number" step="any" value="40"></label>
+              <label class="lbl">Base INT<input class="field" id="base-int" type="number" step="any" value="35"></label>
+              <label class="lbl">Alloc STR<input class="field" id="alloc-str" type="number" step="any" value="180"></label>
+              <label class="lbl">Alloc INT<input class="field" id="alloc-int" type="number" step="any" value="40"></label>
+              <label class="lbl">Gear / buff STR<input class="field" id="gear-str" type="number" step="any" value="0"></label>
+              <label class="lbl">Gear / buff INT<input class="field" id="gear-int" type="number" step="any" value="0"></label>
+            </div>
+            <div id="balance-out" class="mt-4 font-sans text-sm leading-6"></div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="button" class="btn" id="apply-f-phy">Copy physical F into the hit</button>
+              <button type="button" class="btn" id="apply-f-mag">Copy magic F into the hit</button>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-stone-300 bg-white p-4 sm:p-5" aria-labelledby="calc-wep">
+            <h3 id="calc-wep" class="font-serif text-xl">Weapon attack before Mastery</h3>
+            <p class="mt-2 font-sans text-sm leading-6 text-stone-600">Reinforce is entered in percent points: 80 for an 80% line. STR and INT come from the balance panel above.</p>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <label class="lbl">Physical weapon min<input class="field" id="wep-phy-min" type="number" step="any" value="0"></label>
+              <label class="lbl">Physical weapon max<input class="field" id="wep-phy-max" type="number" step="any" value="0"></label>
+              <label class="lbl">Physical reinforce min %<input class="field" id="rei-phy-min" type="number" step="any" value="0"></label>
+              <label class="lbl">Physical reinforce max %<input class="field" id="rei-phy-max" type="number" step="any" value="0"></label>
+              <label class="lbl col-span-2">Flat physical<input class="field" id="flat-phy" type="number" step="any" value="0"></label>
+              <label class="lbl">Magic weapon min<input class="field" id="wep-mag-min" type="number" step="any" value="0"></label>
+              <label class="lbl">Magic weapon max<input class="field" id="wep-mag-max" type="number" step="any" value="0"></label>
+              <label class="lbl">Magic reinforce min %<input class="field" id="rei-mag-min" type="number" step="any" value="0"></label>
+              <label class="lbl">Magic reinforce max %<input class="field" id="rei-mag-max" type="number" step="any" value="0"></label>
+              <label class="lbl col-span-2">Flat magic<input class="field" id="flat-mag" type="number" step="any" value="0"></label>
+            </div>
+            <div id="weapon-out" class="mt-4 font-sans text-sm leading-6"></div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="button" class="btn" id="apply-phy-max">Copy physical max into A</button>
+              <button type="button" class="btn" id="apply-mag-max">Copy magic max into A</button>
+            </div>
+          </section>
+
+          <form id="hit-form" class="rounded-2xl border border-stone-300 bg-white p-4 sm:p-5" autocomplete="off">
+            <h3 class="font-serif text-xl">One hit</h3>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <label class="lbl">L, level gap<input class="field" id="L" type="number" step="any" value="1"></label>
+              <label class="lbl">Berserk Z<input class="field" id="berserk" type="number" step="any" value="1"></label>
+              <label class="lbl">Attacker level<input class="field" id="lv-atk" type="number" step="1" value="90"></label>
+              <label class="lbl">Target level<input class="field" id="lv-def" type="number" step="1" value="90"></label>
+            </div>
+            <p id="l-estimate" class="mt-2 font-sans text-sm text-stone-600"></p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button type="button" class="btn" id="apply-l">Write the L estimate</button>
+              <button type="button" class="btn" id="apply-z">Original Berserk ×2</button>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-4 font-sans text-sm">
+              <label class="inline-flex items-center gap-2"><input id="crit" type="checkbox" class="size-4 accent-[#c2410c]"> Critical</label>
+              <label class="inline-flex items-center gap-2"><input id="block" type="checkbox" class="size-4 accent-[#c2410c]"> Block succeeds</label>
+            </div>
+
+            <fieldset class="mt-5" id="box-phy">
+              <legend class="font-sans text-sm font-semibold text-accent">Physical stream</legend>
+              <label class="mt-2 inline-flex items-center gap-2 font-sans text-sm"><input id="phy-active" type="checkbox" class="size-4 accent-[#c2410c]" checked> This stream is part of the hit</label>
+              <div class="mt-3 grid grid-cols-2 gap-3">
+                <label class="lbl">A<input class="field" id="phy-A" type="number" step="any" value="4538"></label>
+                <label class="lbl">B<input class="field" id="phy-B" type="number" step="any" value="1478"></label>
+                <label class="lbl">C<input class="field" id="phy-C" type="number" step="any" value="0.99"></label>
+                <label class="lbl">D<input class="field" id="phy-D" type="number" step="any" value="1.039"></label>
+                <label class="lbl">E<input class="field" id="phy-E" type="number" step="any" value="1380"></label>
+                <label class="lbl">F<input class="field" id="phy-F" type="number" step="any" value="1.07788"></label>
+                <label class="lbl">G<input class="field" id="phy-G" type="number" step="any" value="0.05"></label>
+                <label class="lbl">H<input class="field" id="phy-H" type="number" step="any" value="2.08"></label>
+              </div>
+              <div class="mt-3 space-y-2 font-sans text-sm">
+                <label class="flex items-start gap-2"><input id="phy-Dpct" type="checkbox" class="mt-1 size-4 accent-[#c2410c]"> D is a UI percent: divide by 100, do not cap at 1</label>
+                <label class="flex items-start gap-2"><input id="phy-Fpct" type="checkbox" class="mt-1 size-4 accent-[#c2410c]"> F is a UI percent: divide by 100, then cap at 1.20</label>
+                <label class="flex items-start gap-2"><input id="phy-ignore" type="checkbox" class="mt-1 size-4 accent-[#c2410c]"> Ignore Monster Defense, physical E = 0</label>
+              </div>
+              <p id="hint-phy" class="mt-2 font-sans text-sm text-amber-900"></p>
+            </fieldset>
+
+            <fieldset class="mt-6 border-t border-stone-200 pt-4" id="box-mag">
+              <legend class="font-sans text-sm font-semibold">Magic stream</legend>
+              <label class="mt-2 inline-flex items-center gap-2 font-sans text-sm"><input id="mag-active" type="checkbox" class="size-4 accent-[#c2410c]"> This stream is part of the hit</label>
+              <div class="mt-3 grid grid-cols-2 gap-3">
+                <label class="lbl">A<input class="field" id="mag-A" type="number" step="any" value="0"></label>
+                <label class="lbl">B<input class="field" id="mag-B" type="number" step="any" value="0"></label>
+                <label class="lbl">C<input class="field" id="mag-C" type="number" step="any" value="0"></label>
+                <label class="lbl">D<input class="field" id="mag-D" type="number" step="any" value="0"></label>
+                <label class="lbl">E<input class="field" id="mag-E" type="number" step="any" value="0"></label>
+                <label class="lbl">F<input class="field" id="mag-F" type="number" step="any" value="0"></label>
+                <label class="lbl">G<input class="field" id="mag-G" type="number" step="any" value="0"></label>
+                <label class="lbl">H<input class="field" id="mag-H" type="number" step="any" value="1"></label>
+              </div>
+              <div class="mt-3 space-y-2 font-sans text-sm">
+                <label class="flex items-start gap-2"><input id="mag-Dpct" type="checkbox" class="mt-1 size-4 accent-[#c2410c]"> D is a UI percent: divide by 100, do not cap at 1</label>
+                <label class="flex items-start gap-2"><input id="mag-Fpct" type="checkbox" class="mt-1 size-4 accent-[#c2410c]"> F is a UI percent: divide by 100, then cap at 1.20</label>
+                <label class="flex items-start gap-2"><input id="mag-ignore" type="checkbox" class="mt-1 size-4 accent-[#c2410c]"> Ignore Monster Defense, magic E = 0</label>
+              </div>
+              <p id="hint-mag" class="mt-2 font-sans text-sm text-amber-900"></p>
+            </fieldset>
+          </form>
+        </div>
+
+        <div class="space-y-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:self-start xl:overflow-auto">
+          <div class="hidden rounded-2xl border border-stone-300 bg-[#fffdf8] px-4 py-4 xl:block">
+            <p class="font-mono text-[0.68rem] uppercase tracking-[0.16em] text-accent">Total of this hit</p>
+            <p id="score-value-desktop" class="mt-1 font-serif text-5xl leading-none text-stone-950">—</p>
+            <p id="score-note-desktop" class="mt-2 font-sans text-sm leading-6 text-stone-600">Using the numbers already on the form.</p>
+          </div>
+          <div id="trace" class="rounded-2xl border border-stone-300 bg-white p-4 sm:p-5"></div>
+        </div>
+      </div>
+      </div>
+
+      <h2 id="pham-vi" class="mt-12 scroll-mt-24 border-t-2 border-stone-950 pt-6 font-serif text-2xl leading-tight sm:mt-16 sm:pt-8 sm:text-3xl xl:scroll-mt-8">Scope</h2>
+      <p class="mt-5 text-pretty">This spec follows the SR_GameServer architecture on the original Joymax / vSRO PC client. Dual-stream, balance after armor, absorption as \(1/(1+D)\), and a floor of 1 point are that frame. SROM Mobile and modified private servers may keep the frame and then attach a scale constant at the last step to tune PvP. This page does not put any scale constant into the formula.</p>
+      <p class="mt-4 text-pretty font-sans text-sm text-stone-500">This file is a calculation handbook for the pipeline that was checked. It does not replace a packet log, or the client number, when a server adds its own factor.</p>
+    </article>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    if (typeof renderMathInElement === 'function') {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false },
+        ],
+        throwOnError: false,
+      });
+    }
+
+    const $ = (id) => document.getElementById(id);
+    const STREAMS = ['phy', 'mag'];
+
+    function num(id) {
+      const v = parseFloat($(id).value);
+      return Number.isFinite(v) ? v : 0;
+    }
+    function on(id) { return $(id).checked; }
+    function near(a, b) { return Math.abs(a - b) <= 1e-6; }
+    function fmt(n, d = 6) {
+      if (!Number.isFinite(n)) return '—';
+      const neg = n < 0;
+      let s = Math.abs(n).toFixed(d);
+      if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, '');
+      const parts = s.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return (neg ? '−' : '') + parts.join('.');
+    }
+    function numStr(n) {
+      if (!Number.isFinite(n)) return '0';
+      return String(Math.round(n * 1e8) / 1e8);
+    }
+    function row(label, value) {
+      return '<div class="row"><span>' + label + '</span><b>' + value + '</b></div>';
+    }
+
+    function readBalance() {
+      const lv = num('lv');
+      const fromLv = lv - 1;
+      const M = 28 + 4 * lv;
+      const STR = num('base-str') + fromLv + num('alloc-str') + num('gear-str');
+      const INT = num('base-int') + fromLv + num('alloc-int') + num('gear-int');
+      const pool = 3 * fromLv;
+      const over = num('alloc-str') + num('alloc-int') > pool + 1e-9;
+      if (M === 0) return { error: true, lv, pool, over };
+      const fPhyOpen = 1 - (2 / 3) * ((M - STR) / M);
+      const fPhyAlt = (1 / 3) + (2 / 3) * (STR / M);
+      const fMagOpen = INT / M;
+      return {
+        error: false, lv, fromLv, M, STR, INT, pool, over,
+        fPhyOpen, fPhyAlt, fMagOpen,
+        fPhy: Math.min(1.2, fPhyOpen),
+        fMag: Math.min(1.2, fMagOpen),
+      };
+    }
+
+    function readWeapon(bal) {
+      const STR = bal && !bal.error ? bal.STR : 0;
+      const INT = bal && !bal.error ? bal.INT : 0;
+      const atk = (wep, rei, flat, stat) => wep + stat * (rei / 100) + flat;
+      return {
+        STR, INT,
+        phyMin: atk(num('wep-phy-min'), num('rei-phy-min'), num('flat-phy'), STR),
+        phyMax: atk(num('wep-phy-max'), num('rei-phy-max'), num('flat-phy'), STR),
+        magMin: atk(num('wep-mag-min'), num('rei-mag-min'), num('flat-mag'), INT),
+        magMax: atk(num('wep-mag-max'), num('rei-mag-max'), num('flat-mag'), INT),
+      };
+    }
+
+    function readStream(prefix) {
+      const D = num(prefix + '-D');
+      const F = num(prefix + '-F');
+      const dPct = on(prefix + '-Dpct');
+      const fPct = on(prefix + '-Fpct');
+      return {
+        prefix,
+        name: prefix === 'phy' ? 'Physical' : 'Magic',
+        active: on(prefix + '-active'),
+        A: num(prefix + '-A'),
+        B: num(prefix + '-B'),
+        C: num(prefix + '-C'),
+        D, F,
+        E: num(prefix + '-E'),
+        G: num(prefix + '-G'),
+        H: num(prefix + '-H'),
+        ignore: on(prefix + '-ignore'),
+        dPct, fPct,
+        dUsed: dPct ? D / 100 : D,
+        fUsed: fPct ? Math.min(1.2, F / 100) : F,
+      };
+    }
+
+    function evalStream(s, L) {
+      if (!s.active) return Object.assign({ status: 'off', dmg: 0 }, s);
+      const den = 1 + s.dUsed;
+      if (!(den > 0)) return Object.assign({ status: 'bad-d', dmg: null }, s);
+      const E = s.ignore ? 0 : s.E;
+      const pre = (s.A + s.B) * (1 + s.C);
+      const kept = pre / den;
+      const raw = kept - E;
+      const amp = s.fUsed * (1 + s.G) * s.H * L;
+      const calc = raw * amp;
+      let dmg, status;
+      if (raw <= 0) { dmg = 1; status = 'floor-raw'; }
+      else { dmg = Math.max(1, Math.floor(calc)); status = calc < 1 ? 'floor-calc' : 'ok'; }
+      let dmgIfCap = null;
+      let dmgIfPercent = null;
+      if (!s.fPct && s.F > 1.2 && raw > 0) {
+        const scale = (1 + s.G) * s.H * L;
+        dmgIfCap = Math.max(1, Math.floor(raw * 1.2 * scale));
+        if (s.F > 3) {
+          dmgIfPercent = Math.max(1, Math.floor(raw * Math.min(1.2, s.F / 100) * scale));
+        }
+      }
+      const wrongKeep = pre * (1 - s.dUsed);
+      const wrongRaw = wrongKeep - E;
+      let wrongF = null;
+      if (s.fUsed <= 1.2 && raw > 0) wrongF = raw * (s.fUsed * 100) * (1 + s.G) * s.H * L;
+      return Object.assign({ status, Eused: E, pre, den, kept, raw, amp, calc, dmg, dmgIfCap, dmgIfPercent, wrongRaw, wrongF }, s);
+    }
+
+    function scenarioOf(phy, mag, L, crit, berserk, block) {
+      const base = {
+        A: 4538, B: 1478, C: 0.99, D: 1.039, E: 1380, F: 1.07788, G: 0.05, H: 2.08,
+      };
+      const phyIsTest = phy.active && !phy.ignore && !phy.dPct && !phy.fPct
+        && near(phy.A, base.A) && near(phy.B, base.B) && near(phy.C, base.C)
+        && near(phy.D, base.D) && near(phy.E, base.E) && near(phy.F, base.F)
+        && near(phy.G, base.G) && near(phy.H, base.H);
+      const idle = (s) => !s.active;
+      const edge = (s) => s.active && !s.ignore && !s.dPct && !s.fPct
+        && near(s.A, 20) && near(s.B, 0) && near(s.C, 0) && near(s.D, 1)
+        && near(s.E, 3000) && near(s.G, 0) && near(s.H, 1);
+      if (phyIsTest && idle(mag) && near(L, 1) && near(berserk, 1) && !block) {
+        return crit ? 'test1crit' : 'test1';
+      }
+      if (edge(phy) && near(phy.F, 0.95) && idle(mag) && near(L, 1) && near(berserk, 1) && !crit && !block) return 'test2';
+      if (edge(phy) && near(phy.F, 0.95) && edge(mag) && near(mag.F, 0.3) && near(L, 1) && near(berserk, 1) && !crit && !block) return 'test2b';
+      return '';
+    }
+
+    const NOTES = {
+      test1: 'Matches Test 1. The pipeline returns 10,573. The game UI showed 10,576, a 3-point gap from rounding at display time.',
+      test1crit: 'Test 1 with a critical. The pipeline returns 21,146. The recorded case has no separate critical UI number.',
+      test2: 'Matches Test 2, a plain hit. Raw is negative, so the physical stream is forced to 1. The magic stream is off, so the total is 1.',
+      test2b: 'The imbue branch of Test 2. The magic numbers are a boundary stand-in so that magic Raw ≤ 0, which is the case that concludes the total is 2. The spec does not list each magic variable for this case.',
+    };
+
+    function renderBalance(bal) {
+      const host = $('balance-out');
+      if (bal.error) {
+        host.innerHTML = '<p>M = 0, so the ratio cannot be divided. Use a level other than −7.</p>';
+        return;
+      }
+      const capPhy = bal.fPhyOpen > 1.2;
+      const capMag = bal.fMagOpen > 1.2;
+      host.innerHTML = [
+        row('STR from levels (Lv − 1)', fmt(bal.fromLv, 4)),
+        row('STR total', fmt(bal.STR, 4)),
+        row('INT total', fmt(bal.INT, 4)),
+        row('M = 28 + 4×Lv', fmt(bal.M, 4)),
+        row('Allocatable pool', fmt(bal.pool, 4)),
+        row('Physical F before the cap', fmt(bal.fPhyOpen, 6) + ' · ' + fmt(bal.fPhyOpen * 100, 4) + '%'),
+        row('Physical F used in the pipeline', fmt(bal.fPhy, 6) + (capPhy ? ' · at the cap' : '')),
+        row('Equivalent form 1/3 + (2/3)·STR/M', fmt(Math.min(1.2, bal.fPhyAlt), 6)),
+        row('Magic F before the cap', fmt(bal.fMagOpen, 6) + ' · ' + fmt(bal.fMagOpen * 100, 4) + '%'),
+        row('Magic F used in the pipeline', fmt(bal.fMag, 6) + (capMag ? ' · at the cap' : '')),
+        row('STR required to reach the physical cap', fmt(1.3 * bal.M, 4)),
+        row('INT required to reach the magic cap', fmt(1.2 * bal.M, 4)),
+        '<p class="mt-2 text-stone-600">At STR = 0, the physical formula returns 1/3. Current STR total is ' + fmt(bal.STR, 4) + '.</p>',
+        bal.over ? '<p class="mt-2 text-amber-900">Alloc STR + Alloc INT is larger than the pool of 3 points per level. F is still computed from the numbers entered.</p>' : '',
+      ].join('');
+    }
+
+    function renderWeapon(w) {
+      $('weapon-out').innerHTML = [
+        row('STR total in use', fmt(w.STR, 4)),
+        row('INT total in use', fmt(w.INT, 4)),
+        row('Physical attack min → max', fmt(w.phyMin, 4) + ' → ' + fmt(w.phyMax, 4)),
+        row('Magic attack min → max', fmt(w.magMin, 4) + ' → ' + fmt(w.magMax, 4)),
+        '<p class="mt-2 text-stone-600">This is attack before Mastery. When you copy it into A, put Mastery in C. If the character-sheet number already includes Mastery, do not copy it into A and add Mastery again.</p>',
+      ].join('');
+    }
+
+    function hintFor(s) {
+      const bits = [];
+      if (!s.dPct && s.D > 3) bits.push('D is above 3. If that is a percent, turn on the conversion box: 103.9% is entered as 1.039. D is not capped at 1.');
+      if (!s.fPct && s.F > 1.2) bits.push('F is above the 1.20 cap. If that is a UI percent, turn on the conversion box to divide by 100 and apply the cap.');
+      if (s.C > 3) bits.push('C is above 3. 99% is entered as 0.99.');
+      if (s.G > 3) bits.push('G is above 3. +5% and +25% add to 0.30.');
+      if (s.H > 10) bits.push('H is above 10. 208% is entered as 2.08.');
+      return bits.join(' ');
+    }
+
+    function streamTrace(s) {
+      const head = '<h3 class="font-serif text-lg">' + s.name + '</h3>';
+      if (s.status === 'off') {
+        return '<section class="mt-4 opacity-70">' + head + '<p class="mt-1 font-sans text-sm">Stream off → DMG = 0.</p></section>';
+      }
+      if (s.status === 'bad-d') {
+        return '<section class="mt-4">' + head + '<p class="mt-1 font-sans text-sm text-amber-900">1 + D must be greater than 0. With D = ' + fmt(s.dUsed, 6) + ' the pipeline cannot divide.</p></section>';
+      }
+      const why = {
+        'floor-raw': 'Raw ≤ 0. The stream is on, so DMG = 1. The later factors must not create negative damage.',
+        'floor-calc': 'Raw is positive but Calc &lt; 1, so the floor raises DMG to 1.',
+        ok: 'The fractional part is dropped with floor, once Calc is known to be at least 1.',
+      }[s.status];
+      let capLine = '';
+      if (s.dmgIfCap != null) {
+        capLine = '<p class="mt-2 font-sans text-sm text-amber-900">The DMG above multiplies by the F that was typed, and that F is above 1.20, so it is not yet the engine number. ';
+        if (s.dmgIfPercent != null) {
+          capLine += 'If this is a UI percent, dividing by 100 gives F = ' + fmt(Math.min(1.2, s.F / 100), 6) + ' and DMG = ' + fmt(s.dmgIfPercent, 0) + '. ';
+        }
+        capLine += 'If this is already a decimal and only the cap was forgotten, the engine multiplies by 1.20 and DMG = ' + fmt(s.dmgIfCap, 0) + '.</p>';
+      }
+      const convert = [];
+      if (s.dPct) convert.push(row('D converted from a percent', fmt(s.D, 4) + '% → ' + fmt(s.dUsed, 6)));
+      if (s.fPct) convert.push(row('F converted from a percent, cap 1.20', fmt(s.F, 4) + '% → ' + fmt(s.fUsed, 6)));
+      if (s.ignore) convert.push(row('Ignore defense', 'E used in Raw = 0'));
+      return '<section class="mt-4">' + head + convert.join('') +
+        row('Numerator (A+B)(1+C)', fmt(s.pre)) +
+        row('Denominator 1+D', fmt(s.den)) +
+        row('Left after absorption', fmt(s.kept) + ' · ' + fmt(100 / s.den, 4) + '%') +
+        row('Subtract E', fmt(s.Eused, 4)) +
+        row('Raw', fmt(s.raw)) +
+        row('F × (1+G) × H × L', fmt(s.amp)) +
+        row('Calc', fmt(s.calc)) +
+        row('DMG', fmt(s.dmg, 0)) +
+        '<p class="mt-2 font-sans text-sm text-stone-600">' + why + '</p>' + capLine +
+        '</section>';
+    }
+
+    function counterfactual(results) {
+      const blocks = results.filter((s) => s.status && s.status !== 'off' && s.status !== 'bad-d').map((s) => {
+        const lines = ['<p class="font-sans text-sm font-semibold">' + s.name + '</p>'];
+        lines.push('<p class="font-sans text-sm">Subtraction (1−D) on the same numerator gives Raw = ' + fmt(s.wrongRaw) + '.</p>');
+        if (s.wrongF != null) lines.push('<p class="font-sans text-sm">Multiplying by F×100 instead of F gives Calc = ' + fmt(s.wrongF) + '.</p>');
+        return lines.join('');
+      }).join('');
+      if (!blocks) return '';
+      return '<details class="mt-4 rounded-xl border border-stone-200 px-3 py-2"><summary class="cursor-pointer font-sans text-sm font-semibold">Two discarded calculations, on the same numbers</summary><div class="mt-2 space-y-2">' + blocks + '</div></details>';
+    }
+
+    function renderHit(bal) {
+      const L = num('L');
+      const atk = num('lv-atk');
+      const def = num('lv-def');
+      const estimate = Math.min(1.3, 1 + 0.03 * Math.max(0, atk - def));
+      $('l-estimate').textContent = 'L estimate when the attacker is higher: ' + fmt(estimate, 4) + '. Cap 1.30. When the attacker is lower, this estimate stays at 1.';
+      STREAMS.forEach((p) => { $('hint-' + p).textContent = hintFor(readStream(p)); });
+
+      const crit = on('crit');
+      const block = on('block');
+      const berserk = num('berserk');
+      const results = STREAMS.map((p) => evalStream(readStream(p), L));
+      const bad = results.some((s) => s.status === 'bad-d');
+      const scene = scenarioOf(readStream('phy'), readStream('mag'), L, crit, berserk, block);
+
+      let totalText = '—';
+      let note = 'Edit the numbers beside this panel. Total updates from the pipeline.';
+      let body = '';
+
+      if (block) {
+        totalText = '0';
+        note = 'Block succeeds. This hit stops at Tier 2. Total = 0.';
+        body = '<p class="font-sans text-sm leading-6">The shield blocked the hit. Crit, Berserk, and both streams are not added to the official total.</p>' +
+          '<details class="mt-3"><summary class="cursor-pointer font-sans text-sm font-semibold">If the shield had not blocked, with the same stats</summary><div id="unblocked"></div></details>';
+      } else if (bad) {
+        note = 'A stream is on, but the denominator 1+D is not positive.';
+        body = results.map(streamTrace).join('');
+      } else {
+        const phy = results[0].dmg;
+        const mag = results[1].dmg;
+        const combined = (crit ? 2 * phy : phy) + mag;
+        const total = combined * berserk;
+        totalText = fmt(total, Number.isInteger(total) ? 0 : 4);
+        const phyPart = crit ? 2 * phy : phy;
+        const share = phyPart + mag;
+        const bar = share > 0
+          ? '<div class="mt-3 flex h-2 overflow-hidden rounded-full bg-stone-200" aria-hidden="true"><div class="bg-accent" style="width:' + (100 * phyPart / share) + '%"></div><div class="bg-stone-800" style="width:' + (100 * mag / share) + '%"></div></div><p class="mt-1 font-sans text-xs text-stone-500">Physical ' + fmt(phyPart, 0) + ' · Magic ' + fmt(mag, 0) + (crit ? ' · critical already doubled the physical part' : '') + '</p>'
+          : '';
+        const overCap = results.some((s) => s.active && !s.fPct && s.F > 1.2);
+        note = NOTES[scene] || (overCap
+          ? 'The total multiplies by the F that was typed. Some F is above 1.20, so this number is not yet the engine result.'
+          : ('Add the streams' + (crit ? ', critical on physical only' : '') + ', then multiply by Berserk ' + fmt(berserk, 4) + '.'));
+        body = results.map(streamTrace).join('') +
+          '<section class="mt-4 border-t border-stone-200 pt-3">' +
+          row('Physical DMG after the floor', fmt(phy, 0)) +
+          row('Magic DMG after the floor', fmt(mag, 0)) +
+          row(crit ? 'After critical (2× physical)' : 'Sum of the two streams', fmt(combined, 0)) +
+          row('Multiply by Berserk', fmt(berserk, 4)) +
+          row('Total', fmt(total, 4)) +
+          '</section>' + bar + counterfactual(results);
+      }
+
+      $('score-value').textContent = totalText;
+      $('score-note').textContent = note;
+      $('score-value-desktop').textContent = totalText;
+      $('score-note-desktop').textContent = note;
+      $('trace').innerHTML = '<p class="font-mono text-[0.68rem] uppercase tracking-[0.16em] text-accent">Trace</p>' + body;
+
+      if (block) {
+        const replay = results.map(streamTrace).join('') + counterfactual(results);
+        const slot = document.getElementById('unblocked');
+        if (slot) slot.innerHTML = replay;
+      }
+      return bal;
+    }
+
+    function renderAll() {
+      const bal = readBalance();
+      renderBalance(bal);
+      renderWeapon(readWeapon(bal));
+      renderHit(bal);
+    }
+
+    const PRESETS = {
+      test1: { crit: false, block: false, L: 1, berserk: 1, phy: { active: true, A: 4538, B: 1478, C: 0.99, D: 1.039, E: 1380, F: 1.07788, G: 0.05, H: 2.08 }, mag: { active: false, A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0, H: 1 } },
+      test1crit: { crit: true, block: false, L: 1, berserk: 1, phy: { active: true, A: 4538, B: 1478, C: 0.99, D: 1.039, E: 1380, F: 1.07788, G: 0.05, H: 2.08 }, mag: { active: false, A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0, H: 1 } },
+      test2: { crit: false, block: false, L: 1, berserk: 1, phy: { active: true, A: 20, B: 0, C: 0, D: 1, E: 3000, F: 0.95, G: 0, H: 1 }, mag: { active: false, A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0, H: 1 } },
+      test2b: { crit: false, block: false, L: 1, berserk: 1, phy: { active: true, A: 20, B: 0, C: 0, D: 1, E: 3000, F: 0.95, G: 0, H: 1 }, mag: { active: true, A: 20, B: 0, C: 0, D: 1, E: 3000, F: 0.3, G: 0, H: 1 } },
+      blank: { crit: false, block: false, L: 1, berserk: 1, phy: { active: true, A: 0, B: 0, C: 0, D: 0, E: 0, F: 1, G: 0, H: 1 }, mag: { active: false, A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0, H: 1 } },
+    };
+
+    function applyStream(prefix, data) {
+      $(prefix + '-active').checked = !!data.active;
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach((key) => {
+        $(prefix + '-' + key).value = numStr(data[key]);
+      });
+      $(prefix + '-Dpct').checked = false;
+      $(prefix + '-Fpct').checked = false;
+      $(prefix + '-ignore').checked = false;
+    }
+    function applyPreset(name) {
+      const p = PRESETS[name];
+      if (!p) return;
+      $('crit').checked = p.crit;
+      $('block').checked = p.block;
+      $('L').value = numStr(p.L);
+      $('berserk').value = numStr(p.berserk);
+      applyStream('phy', p.phy);
+      applyStream('mag', p.mag);
+      renderAll();
+      $('score').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    document.querySelectorAll('[data-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    });
+    $('jump-test1').addEventListener('click', () => applyPreset('test1'));
+    $('jump-test2').addEventListener('click', () => applyPreset('test2'));
+    $('jump-test2b').addEventListener('click', () => applyPreset('test2b'));
+    $('apply-l').addEventListener('click', () => {
+      const estimate = Math.min(1.3, 1 + 0.03 * Math.max(0, num('lv-atk') - num('lv-def')));
+      $('L').value = numStr(estimate);
+      renderAll();
+    });
+    $('apply-z').addEventListener('click', () => { $('berserk').value = '2'; renderAll(); });
+    $('apply-f-phy').addEventListener('click', () => {
+      const bal = readBalance();
+      if (bal.error) return;
+      $('phy-F').value = numStr(bal.fPhy);
+      $('phy-Fpct').checked = false;
+      renderAll();
+    });
+    $('apply-f-mag').addEventListener('click', () => {
+      const bal = readBalance();
+      if (bal.error) return;
+      $('mag-F').value = numStr(bal.fMag);
+      $('mag-Fpct').checked = false;
+      $('mag-active').checked = true;
+      renderAll();
+    });
+    $('apply-phy-max').addEventListener('click', () => {
+      const w = readWeapon(readBalance());
+      $('phy-A').value = numStr(w.phyMax);
+      $('phy-active').checked = true;
+      renderAll();
+    });
+    $('apply-mag-max').addEventListener('click', () => {
+      const w = readWeapon(readBalance());
+      $('mag-A').value = numStr(w.magMax);
+      $('mag-active').checked = true;
+      renderAll();
+    });
+
+    $('calc-root').addEventListener('input', renderAll);
+    $('calc-root').addEventListener('change', renderAll);
+    $('hit-form').addEventListener('submit', (event) => event.preventDefault());
+    document.querySelectorAll('input[type=number]').forEach((el) => {
+      el.addEventListener('wheel', () => el.blur(), { passive: true });
+    });
+    document.querySelectorAll('aside a').forEach((a) => {
+      a.addEventListener('click', () => { $('nav-open').checked = false; });
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
